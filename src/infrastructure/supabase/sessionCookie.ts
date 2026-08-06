@@ -15,6 +15,8 @@ import type { CookieOptions } from '@supabase/ssr';
  * cada recarga de página ni al cambiar de pestaña).
  */
 export function toSessionCookieOptions(options?: CookieOptions): CookieOptions {
-  const { maxAge: _maxAge, expires: _expires, ...rest } = options ?? {};
+  const rest: CookieOptions = { ...options };
+  delete rest.maxAge;
+  delete rest.expires;
   return rest;
 }
