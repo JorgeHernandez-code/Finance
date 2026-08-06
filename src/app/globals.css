@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Tokens del sistema de diseño. Tema oscuro por defecto (es el primario,
+ * ver docs/01-ARQUITECTURA.md §4); .light sobreescribe para el modo claro.
+ * Formato HSL sin la función hsl() para poder usar <alpha-value> en Tailwind.
+ */
+@layer base {
+  :root {
+    --background: 240 10% 4%;
+    --foreground: 0 0% 96%;
+    --surface: 240 8% 8%;
+    --surface-glass: 240 8% 14%;
+    --border: 240 6% 18%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --success: 142 71% 45%;
+    --danger: 0 84% 60%;
+    --warning: 38 92% 50%;
+    --muted: 240 6% 14%;
+    --muted-foreground: 240 5% 65%;
+    --radius: 0.75rem;
+  }
+
+  .light {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 4%;
+    --surface: 240 20% 99%;
+    --surface-glass: 0 0% 100%;
+    --border: 240 6% 90%;
+    --primary: 217 91% 55%;
+    --primary-foreground: 0 0% 100%;
+    --success: 142 71% 38%;
+    --danger: 0 72% 51%;
+    --warning: 32 95% 44%;
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+@layer utilities {
+  /* Superficie de vidrio reutilizable para cards de KPIs, sidebar, modales */
+  .glass {
+    @apply bg-surface-glass/60 border border-border/60 backdrop-blur-glass;
+  }
+
+  /* Alineación correcta de cifras monetarias en tablas y KPIs */
+  .tabular {
+    font-feature-settings: 'tnum' 1, 'lnum' 1;
+  }
+}

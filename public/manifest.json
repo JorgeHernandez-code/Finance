@@ -1,0 +1,11 @@
+{
+  "name": "Finance — Dashboard Financiero",
+  "short_name": "Finance",
+  "description": "Control total de tus finanzas personales",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0c",
+  "theme_color": "#0a0a0c",
+  "icons": [],
+  "_note": "Íconos reales se agregan en Fase 21 (PWA + Capacitor) junto con el build para Android."
+}

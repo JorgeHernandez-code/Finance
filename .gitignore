@@ -1,0 +1,32 @@
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+build/
+
+# env — NUNCA commitear secretos
+.env
+.env.local
+.env.*.local
+
+# testing
+coverage/
+playwright-report/
+test-results/
+
+# capacitor / android
+android/app/build/
+android/.gradle/
+android/local.properties
+*.keystore
+*.jks
+
+# misc
+.DS_Store
+*.pem
+.vscode/*
+!.vscode/extensions.json
+npm-debug.log*
+.turbo/
