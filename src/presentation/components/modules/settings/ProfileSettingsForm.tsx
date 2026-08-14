@@ -13,7 +13,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/pre
 import { Button } from '@/presentation/components/ui/button';
 import { Input } from '@/presentation/components/ui/input';
 import { Label } from '@/presentation/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/presentation/components/ui/select';
 
 interface ProfileSettingsFormProps {
   userId: string;
@@ -53,7 +59,7 @@ export function ProfileSettingsForm({ userId, initialData }: ProfileSettingsForm
   });
 
   return (
-    <Card>
+    <Card id="profile" className="scroll-mt-20">
       <CardHeader>
         <CardTitle>Perfil</CardTitle>
         <CardDescription>Tu información personal y preferencias.</CardDescription>

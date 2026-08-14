@@ -8,11 +8,23 @@ import { budgetInputSchema, type BudgetInputDto } from '@/application/dto/budget
 import { createBudgetAction, updateBudgetAction } from '@/app/(dashboard)/budgets/actions';
 import type { Budget } from '@/domain/entities/Budget';
 import type { CategoryOption } from '@/domain/entities/ReferenceOption';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/presentation/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/presentation/components/ui/dialog';
 import { Button } from '@/presentation/components/ui/button';
 import { Input } from '@/presentation/components/ui/input';
 import { Label } from '@/presentation/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/presentation/components/ui/select';
 
 interface BudgetFormDialogProps {
   open: boolean;
@@ -43,15 +55,26 @@ function toFormValues(editing: Budget | null): BudgetInputDto {
   };
 }
 
-export function BudgetFormDialog({ open, onOpenChange, categories, editing, onSaved }: BudgetFormDialogProps) {
-  const form = useForm<BudgetInputDto>({ resolver: zodResolver(budgetInputSchema), defaultValues: toFormValues(editing) });
+export function BudgetFormDialog({
+  open,
+  onOpenChange,
+  categories,
+  editing,
+  onSaved,
+}: BudgetFormDialogProps) {
+  const form = useForm<BudgetInputDto>({
+    resolver: zodResolver(budgetInputSchema),
+    defaultValues: toFormValues(editing),
+  });
 
   useEffect(() => {
     if (open) form.reset(toFormValues(editing));
   }, [open, editing, form]);
 
   const onSubmit = form.handleSubmit(async (values) => {
-    const result = editing ? await updateBudgetAction({ ...values, id: editing.id }) : await createBudgetAction(values);
+    const result = editing
+      ? await updateBudgetAction({ ...values, id: editing.id })
+      : await createBudgetAction(values);
 
     if (result.error) {
       toast.error(result.error);
@@ -98,7 +121,7 @@ export function BudgetFormDialog({ open, onOpenChange, categories, editing, onSa
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="amount">Monto límite</Label>
               <Input id="amount" type="number" step="0.01" min="0.01" {...form.register('amount')} />
@@ -126,7 +149,7 @@ export function BudgetFormDialog({ open, onOpenChange, categories, editing, onSa
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="startDate">Desde</Label>
               <Input id="startDate" type="date" {...form.register('startDate')} />
@@ -139,7 +162,13 @@ export function BudgetFormDialog({ open, onOpenChange, categories, editing, onSa
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="alertThresholdPercent">Avisar al gastar el (%)</Label>
-            <Input id="alertThresholdPercent" type="number" min="1" max="100" {...form.register('alertThresholdPercent')} />
+            <Input
+              id="alertThresholdPercent"
+              type="number"
+              min="1"
+              max="100"
+              {...form.register('alertThresholdPercent')}
+            />
           </div>
 
           <div className="mt-2 flex justify-end gap-2">
@@ -147,7 +176,11 @@ export function BudgetFormDialog({ open, onOpenChange, categories, editing, onSa
               Cancelar
             </Button>
             <Button type="submit" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? 'Guardando...' : editing ? 'Guardar cambios' : 'Crear presupuesto'}
+              {form.formState.isSubmitting
+                ? 'Guardando...'
+                : editing
+                  ? 'Guardar cambios'
+                  : 'Crear presupuesto'}
             </Button>
           </div>
         </form>

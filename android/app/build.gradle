@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace "com.getcapacitor.myapp"
+    namespace "com.jorgehernandez.finance"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.getcapacitor.app"
+        applicationId "com.jorgehernandez.finance"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

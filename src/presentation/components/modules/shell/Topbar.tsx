@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { LogOut, Menu, Search, Settings, User } from 'lucide-react';
 import { logoutAction } from '@/app/(auth)/actions';
 import { Button } from '@/presentation/components/ui/button';
@@ -34,7 +35,7 @@ export function Topbar({ userEmail = 'tu@correo.com' }: TopbarProps) {
 
       <button
         onClick={() => setCommandPaletteOpen(true)}
-        className="flex h-9 flex-1 max-w-sm items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm text-muted-foreground transition-colors hover:border-primary/40"
+        className="flex h-9 max-w-sm flex-1 items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm text-muted-foreground transition-colors hover:border-primary/40"
       >
         <Search className="size-4" />
         <span className="flex-1 text-left">Buscar...</span>
@@ -56,11 +57,15 @@ export function Topbar({ userEmail = 'tu@correo.com' }: TopbarProps) {
           <DropdownMenuContent align="end">
             <DropdownMenuLabel className="truncate">{userEmail}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <User className="size-4" /> Perfil
+            <DropdownMenuItem asChild>
+              <Link href="/settings#profile">
+                <User className="size-4" /> Perfil
+              </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Settings className="size-4" /> Configuración
+            <DropdownMenuItem asChild>
+              <Link href="/settings">
+                <Settings className="size-4" /> Configuración
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem destructive onSelect={() => void logoutAction()}>

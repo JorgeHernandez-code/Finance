@@ -7,12 +7,24 @@ import { toast } from 'sonner';
 import { investmentInputSchema, type InvestmentInputDto } from '@/application/dto/investment';
 import { createInvestmentAction, updateInvestmentAction } from '@/app/(dashboard)/investments/actions';
 import type { Investment } from '@/domain/entities/Investment';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/presentation/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/presentation/components/ui/dialog';
 import { Button } from '@/presentation/components/ui/button';
 import { Input } from '@/presentation/components/ui/input';
 import { Label } from '@/presentation/components/ui/label';
 import { Textarea } from '@/presentation/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/presentation/components/ui/select';
 
 export const INVESTMENT_TYPE_LABELS: Record<Investment['type'], string> = {
   stocks: 'Acciones',
@@ -31,7 +43,13 @@ interface InvestmentFormDialogProps {
 
 function toFormValues(editing: Investment | null): InvestmentInputDto {
   if (!editing) {
-    return { name: '', type: 'stocks', amountInvested: 0, startDate: new Date().toISOString().slice(0, 10), notes: '' };
+    return {
+      name: '',
+      type: 'stocks',
+      amountInvested: 0,
+      startDate: new Date().toISOString().slice(0, 10),
+      notes: '',
+    };
   }
   return {
     name: editing.name,
@@ -53,7 +71,9 @@ export function InvestmentFormDialog({ open, onOpenChange, editing, onSaved }: I
   }, [open, editing, form]);
 
   const onSubmit = form.handleSubmit(async (values) => {
-    const result = editing ? await updateInvestmentAction({ ...values, id: editing.id }) : await createInvestmentAction(values);
+    const result = editing
+      ? await updateInvestmentAction({ ...values, id: editing.id })
+      : await createInvestmentAction(values);
 
     if (result.error) {
       toast.error(result.error);
@@ -76,7 +96,9 @@ export function InvestmentFormDialog({ open, onOpenChange, editing, onSaved }: I
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="name">Nombre</Label>
             <Input id="name" placeholder="Ej. Acciones Apple" {...form.register('name')} />
-            {form.formState.errors.name && <p className="text-xs text-danger">{form.formState.errors.name.message}</p>}
+            {form.formState.errors.name && (
+              <p className="text-xs text-danger">{form.formState.errors.name.message}</p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -101,10 +123,16 @@ export function InvestmentFormDialog({ open, onOpenChange, editing, onSaved }: I
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="amountInvested">Monto invertido</Label>
-              <Input id="amountInvested" type="number" step="0.01" min="0.01" {...form.register('amountInvested')} />
+              <Input
+                id="amountInvested"
+                type="number"
+                step="0.01"
+                min="0.01"
+                {...form.register('amountInvested')}
+              />
               {form.formState.errors.amountInvested && (
                 <p className="text-xs text-danger">{form.formState.errors.amountInvested.message}</p>
               )}

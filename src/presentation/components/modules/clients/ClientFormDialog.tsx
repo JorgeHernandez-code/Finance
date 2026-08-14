@@ -7,12 +7,24 @@ import { toast } from 'sonner';
 import { clientInputSchema, type ClientInputDto } from '@/application/dto/client';
 import { createClientAction, updateClientAction } from '@/app/(dashboard)/clients/actions';
 import type { Client } from '@/domain/entities/Client';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/presentation/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/presentation/components/ui/dialog';
 import { Button } from '@/presentation/components/ui/button';
 import { Input } from '@/presentation/components/ui/input';
 import { Label } from '@/presentation/components/ui/label';
 import { Textarea } from '@/presentation/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/presentation/components/ui/select';
 import { ColorPicker } from '@/presentation/components/modules/shared/ColorPicker';
 import { IconPicker } from '@/presentation/components/modules/shared/IconPicker';
 
@@ -25,18 +37,29 @@ interface ClientFormDialogProps {
 
 function toFormValues(editing: Client | null): ClientInputDto {
   if (!editing) return { name: '', color: '#14b8a6', icon: 'briefcase', status: 'active', notes: '' };
-  return { name: editing.name, color: editing.color, icon: editing.icon, status: editing.status, notes: editing.notes ?? '' };
+  return {
+    name: editing.name,
+    color: editing.color,
+    icon: editing.icon,
+    status: editing.status,
+    notes: editing.notes ?? '',
+  };
 }
 
 export function ClientFormDialog({ open, onOpenChange, editing, onSaved }: ClientFormDialogProps) {
-  const form = useForm<ClientInputDto>({ resolver: zodResolver(clientInputSchema), defaultValues: toFormValues(editing) });
+  const form = useForm<ClientInputDto>({
+    resolver: zodResolver(clientInputSchema),
+    defaultValues: toFormValues(editing),
+  });
 
   useEffect(() => {
     if (open) form.reset(toFormValues(editing));
   }, [open, editing, form]);
 
   const onSubmit = form.handleSubmit(async (values) => {
-    const result = editing ? await updateClientAction({ ...values, id: editing.id }) : await createClientAction(values);
+    const result = editing
+      ? await updateClientAction({ ...values, id: editing.id })
+      : await createClientAction(values);
 
     if (result.error) {
       toast.error(result.error);
@@ -52,14 +75,18 @@ export function ClientFormDialog({ open, onOpenChange, editing, onSaved }: Clien
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{editing ? 'Editar cliente' : 'Nuevo cliente'}</DialogTitle>
-          <DialogDescription>Para llevar el registro de a quién le facturas tus ingresos freelance.</DialogDescription>
+          <DialogDescription>
+            Para llevar el registro de a quién le facturas tus ingresos freelance.
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="name">Nombre</Label>
             <Input id="name" placeholder="Ej. Acme Inc." {...form.register('name')} />
-            {form.formState.errors.name && <p className="text-xs text-danger">{form.formState.errors.name.message}</p>}
+            {form.formState.errors.name && (
+              <p className="text-xs text-danger">{form.formState.errors.name.message}</p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -81,7 +108,7 @@ export function ClientFormDialog({ open, onOpenChange, editing, onSaved }: Clien
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label>Ícono</Label>
               <Controller

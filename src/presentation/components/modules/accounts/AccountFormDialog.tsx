@@ -8,11 +8,23 @@ import { accountInputSchema, type AccountInputDto } from '@/application/dto/acco
 import { createAccountAction, updateAccountAction } from '@/app/(dashboard)/accounts/actions';
 import type { Account } from '@/domain/entities/Account';
 import { CURRENCIES } from '@/shared/config/currencies';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/presentation/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/presentation/components/ui/dialog';
 import { Button } from '@/presentation/components/ui/button';
 import { Input } from '@/presentation/components/ui/input';
 import { Label } from '@/presentation/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/presentation/components/ui/select';
 import { ColorPicker } from '@/presentation/components/modules/shared/ColorPicker';
 import { IconPicker } from '@/presentation/components/modules/shared/IconPicker';
 
@@ -33,7 +45,15 @@ interface AccountFormDialogProps {
 
 function toFormValues(editing: Account | null): AccountInputDto {
   if (!editing) {
-    return { name: '', type: 'bank', institution: '', currency: 'COP', initialBalance: 0, color: '#3b82f6', icon: 'wallet' };
+    return {
+      name: '',
+      type: 'bank',
+      institution: '',
+      currency: 'COP',
+      initialBalance: 0,
+      color: '#3b82f6',
+      icon: 'wallet',
+    };
   }
   return {
     name: editing.name,
@@ -57,7 +77,9 @@ export function AccountFormDialog({ open, onOpenChange, editing, onSaved }: Acco
   }, [open, editing, form]);
 
   const onSubmit = form.handleSubmit(async (values) => {
-    const result = editing ? await updateAccountAction({ ...values, id: editing.id }) : await createAccountAction(values);
+    const result = editing
+      ? await updateAccountAction({ ...values, id: editing.id })
+      : await createAccountAction(values);
 
     if (result.error) {
       toast.error(result.error);
@@ -84,10 +106,12 @@ export function AccountFormDialog({ open, onOpenChange, editing, onSaved }: Acco
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="name">Nombre</Label>
             <Input id="name" placeholder="Ej. Bancolombia Ahorros" {...form.register('name')} />
-            {form.formState.errors.name && <p className="text-xs text-danger">{form.formState.errors.name.message}</p>}
+            {form.formState.errors.name && (
+              <p className="text-xs text-danger">{form.formState.errors.name.message}</p>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label>Tipo</Label>
               <Controller
@@ -139,13 +163,19 @@ export function AccountFormDialog({ open, onOpenChange, editing, onSaved }: Acco
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="initialBalance">{editing ? 'Saldo inicial' : 'Saldo con el que empieza'}</Label>
-            <Input id="initialBalance" type="number" step="0.01" min="0" {...form.register('initialBalance')} />
+            <Input
+              id="initialBalance"
+              type="number"
+              step="0.01"
+              min="0"
+              {...form.register('initialBalance')}
+            />
             {form.formState.errors.initialBalance && (
               <p className="text-xs text-danger">{form.formState.errors.initialBalance.message}</p>
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label>Ícono</Label>
               <Controller

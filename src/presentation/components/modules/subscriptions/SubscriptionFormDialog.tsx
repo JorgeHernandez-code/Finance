@@ -4,16 +4,33 @@ import { useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { subscriptionInputSchema, NO_CATEGORY, NO_ACCOUNT, type SubscriptionInputDto } from '@/application/dto/subscription';
+import {
+  subscriptionInputSchema,
+  NO_CATEGORY,
+  NO_ACCOUNT,
+  type SubscriptionInputDto,
+} from '@/application/dto/subscription';
 import { createSubscriptionAction, updateSubscriptionAction } from '@/app/(dashboard)/subscriptions/actions';
 import type { Subscription } from '@/domain/entities/Subscription';
 import type { TransactionFormOptions } from '@/application/use-cases/transactions/GetTransactionFormOptions';
 import { CURRENCIES } from '@/shared/config/currencies';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/presentation/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/presentation/components/ui/dialog';
 import { Button } from '@/presentation/components/ui/button';
 import { Input } from '@/presentation/components/ui/input';
 import { Label } from '@/presentation/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/presentation/components/ui/select';
 import { ColorPicker } from '@/presentation/components/modules/shared/ColorPicker';
 import { IconPicker } from '@/presentation/components/modules/shared/IconPicker';
 
@@ -58,7 +75,13 @@ function toFormValues(editing: Subscription | null): SubscriptionInputDto {
   };
 }
 
-export function SubscriptionFormDialog({ open, onOpenChange, options, editing, onSaved }: SubscriptionFormDialogProps) {
+export function SubscriptionFormDialog({
+  open,
+  onOpenChange,
+  options,
+  editing,
+  onSaved,
+}: SubscriptionFormDialogProps) {
   const form = useForm<SubscriptionInputDto>({
     resolver: zodResolver(subscriptionInputSchema),
     defaultValues: toFormValues(editing),
@@ -94,10 +117,12 @@ export function SubscriptionFormDialog({ open, onOpenChange, options, editing, o
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="name">Nombre</Label>
             <Input id="name" placeholder="Ej. Netflix" {...form.register('name')} />
-            {form.formState.errors.name && <p className="text-xs text-danger">{form.formState.errors.name.message}</p>}
+            {form.formState.errors.name && (
+              <p className="text-xs text-danger">{form.formState.errors.name.message}</p>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="amount">Monto</Label>
               <Input id="amount" type="number" step="0.01" min="0.01" {...form.register('amount')} />
@@ -128,7 +153,7 @@ export function SubscriptionFormDialog({ open, onOpenChange, options, editing, o
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label>Ciclo de facturación</Label>
               <Controller
@@ -204,7 +229,7 @@ export function SubscriptionFormDialog({ open, onOpenChange, options, editing, o
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label>Ícono</Label>
               <Controller
@@ -228,7 +253,11 @@ export function SubscriptionFormDialog({ open, onOpenChange, options, editing, o
               Cancelar
             </Button>
             <Button type="submit" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? 'Guardando...' : editing ? 'Guardar cambios' : 'Crear suscripción'}
+              {form.formState.isSubmitting
+                ? 'Guardando...'
+                : editing
+                  ? 'Guardar cambios'
+                  : 'Crear suscripción'}
             </Button>
           </div>
         </form>

@@ -7,11 +7,23 @@ import { toast } from 'sonner';
 import { savingsGoalInputSchema, type SavingsGoalInputDto } from '@/application/dto/savingsGoal';
 import { createSavingsGoalAction, updateSavingsGoalAction } from '@/app/(dashboard)/savings/actions';
 import type { SavingsGoal } from '@/domain/entities/SavingsGoal';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/presentation/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/presentation/components/ui/dialog';
 import { Button } from '@/presentation/components/ui/button';
 import { Input } from '@/presentation/components/ui/input';
 import { Label } from '@/presentation/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/presentation/components/ui/select';
 import { ColorPicker } from '@/presentation/components/modules/shared/ColorPicker';
 import { IconPicker } from '@/presentation/components/modules/shared/IconPicker';
 
@@ -24,7 +36,14 @@ interface SavingsGoalFormDialogProps {
 
 function toFormValues(editing: SavingsGoal | null): SavingsGoalInputDto {
   if (!editing) {
-    return { name: '', targetAmount: 0, targetDate: null, icon: 'target', color: '#22c55e', status: 'active' };
+    return {
+      name: '',
+      targetAmount: 0,
+      targetDate: null,
+      icon: 'target',
+      color: '#22c55e',
+      status: 'active',
+    };
   }
   return {
     name: editing.name,
@@ -72,13 +91,21 @@ export function SavingsGoalFormDialog({ open, onOpenChange, editing, onSaved }: 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="name">Nombre</Label>
             <Input id="name" placeholder="Ej. Vacaciones" {...form.register('name')} />
-            {form.formState.errors.name && <p className="text-xs text-danger">{form.formState.errors.name.message}</p>}
+            {form.formState.errors.name && (
+              <p className="text-xs text-danger">{form.formState.errors.name.message}</p>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="targetAmount">Monto objetivo</Label>
-              <Input id="targetAmount" type="number" step="0.01" min="0.01" {...form.register('targetAmount')} />
+              <Input
+                id="targetAmount"
+                type="number"
+                step="0.01"
+                min="0.01"
+                {...form.register('targetAmount')}
+              />
               {form.formState.errors.targetAmount && (
                 <p className="text-xs text-danger">{form.formState.errors.targetAmount.message}</p>
               )}
@@ -109,7 +136,7 @@ export function SavingsGoalFormDialog({ open, onOpenChange, editing, onSaved }: 
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label>Ícono</Label>
               <Controller

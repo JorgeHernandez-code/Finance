@@ -8,11 +8,23 @@ import { toast } from 'sonner';
 import { categoryInputSchema, NO_PARENT_CATEGORY, type CategoryInputDto } from '@/application/dto/category';
 import { createCategoryAction, updateCategoryAction } from '@/app/(dashboard)/categories/actions';
 import type { Category } from '@/domain/entities/Category';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/presentation/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/presentation/components/ui/dialog';
 import { Button } from '@/presentation/components/ui/button';
 import { Input } from '@/presentation/components/ui/input';
 import { Label } from '@/presentation/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/presentation/components/ui/select';
 import { ColorPicker } from '@/presentation/components/modules/shared/ColorPicker';
 import { IconPicker } from '@/presentation/components/modules/shared/IconPicker';
 import { cn } from '@/shared/lib/utils';
@@ -38,7 +50,13 @@ function toFormValues(editing: Category | null): CategoryInputDto {
   };
 }
 
-export function CategoryFormDialog({ open, onOpenChange, categories, editing, onSaved }: CategoryFormDialogProps) {
+export function CategoryFormDialog({
+  open,
+  onOpenChange,
+  categories,
+  editing,
+  onSaved,
+}: CategoryFormDialogProps) {
   const form = useForm<CategoryInputDto>({
     resolver: zodResolver(categoryInputSchema),
     defaultValues: toFormValues(editing),
@@ -54,7 +72,9 @@ export function CategoryFormDialog({ open, onOpenChange, categories, editing, on
   const parentOptions = categories.filter((c) => c.type === type && !c.parentId && c.id !== editing?.id);
 
   const onSubmit = form.handleSubmit(async (values) => {
-    const result = editing ? await updateCategoryAction({ ...values, id: editing.id }) : await createCategoryAction(values);
+    const result = editing
+      ? await updateCategoryAction({ ...values, id: editing.id })
+      : await createCategoryAction(values);
 
     if (result.error) {
       toast.error(result.error);
@@ -71,7 +91,9 @@ export function CategoryFormDialog({ open, onOpenChange, categories, editing, on
         <DialogHeader>
           <DialogTitle>{editing ? 'Editar categoría' : 'Nueva categoría'}</DialogTitle>
           <DialogDescription>
-            {editing ? 'Actualiza el nombre, color o ícono.' : 'Crea una categoría para clasificar tus transacciones.'}
+            {editing
+              ? 'Actualiza el nombre, color o ícono.'
+              : 'Crea una categoría para clasificar tus transacciones.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -85,7 +107,9 @@ export function CategoryFormDialog({ open, onOpenChange, categories, editing, on
               }}
               className={cn(
                 'flex items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium transition-colors',
-                type === 'expense' ? 'border-danger bg-danger/10 text-danger' : 'text-muted-foreground hover:bg-muted'
+                type === 'expense'
+                  ? 'border-danger bg-danger/10 text-danger'
+                  : 'text-muted-foreground hover:bg-muted'
               )}
             >
               <ArrowDownCircle className="size-4" /> Gasto
@@ -98,7 +122,9 @@ export function CategoryFormDialog({ open, onOpenChange, categories, editing, on
               }}
               className={cn(
                 'flex items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium transition-colors',
-                type === 'income' ? 'border-success bg-success/10 text-success' : 'text-muted-foreground hover:bg-muted'
+                type === 'income'
+                  ? 'border-success bg-success/10 text-success'
+                  : 'text-muted-foreground hover:bg-muted'
               )}
             >
               <ArrowUpCircle className="size-4" /> Ingreso
@@ -108,7 +134,9 @@ export function CategoryFormDialog({ open, onOpenChange, categories, editing, on
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="name">Nombre</Label>
             <Input id="name" placeholder="Ej. Mascotas" {...form.register('name')} />
-            {form.formState.errors.name && <p className="text-xs text-danger">{form.formState.errors.name.message}</p>}
+            {form.formState.errors.name && (
+              <p className="text-xs text-danger">{form.formState.errors.name.message}</p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -134,7 +162,7 @@ export function CategoryFormDialog({ open, onOpenChange, categories, editing, on
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label>Ícono</Label>
               <Controller

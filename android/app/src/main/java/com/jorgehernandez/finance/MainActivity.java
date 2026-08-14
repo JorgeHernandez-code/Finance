@@ -1,4 +1,4 @@
-package com.getcapacitor.myapp;
+package com.jorgehernandez.finance;
 
 import com.getcapacitor.BridgeActivity;
 
