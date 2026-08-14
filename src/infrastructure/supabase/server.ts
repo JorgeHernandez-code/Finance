@@ -1,6 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { publicEnv } from '@/shared/config/env';
+import { publicEnv } from '@/shared/config/env.public';
 import type { Database } from '@/shared/types/database';
 import { toSessionCookieOptions } from './sessionCookie';
 
@@ -21,20 +21,24 @@ type CookieToSet = { name: string; value: string; options: CookieOptions };
 export async function createClient() {
   const cookieStore = await cookies();
 
-  return createServerClient<Database>(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll();
+  return createServerClient<Database>(
+    publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+    publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet: CookieToSet[]) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, toSessionCookieOptions(options));
+            });
+          } catch {
+            // Se ejecuta desde un Server Component sin permiso de escritura — esperado.
+          }
+        },
       },
-      setAll(cookiesToSet: CookieToSet[]) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, toSessionCookieOptions(options));
-          });
-        } catch {
-          // Se ejecuta desde un Server Component sin permiso de escritura — esperado.
-        }
-      },
-    },
-  });
+    }
+  );
 }

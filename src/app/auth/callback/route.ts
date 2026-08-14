@@ -11,10 +11,22 @@ import { createClient } from '@/infrastructure/supabase/server';
  * de sesión (ver docs/03-SEGURIDAD.md §1) — sin este paso el usuario nunca
  * queda autenticado tras volver de Google o del correo.
  */
+/**
+ * Solo se permite redirigir a una ruta relativa interna. Sin esta validación,
+ * `next` es controlado por el atacante en el link del correo/OAuth y un valor
+ * como "@evil.com" o "//evil.com" produce un open redirect (CWE-601).
+ */
+function safeNextPath(next: string | null): string {
+  if (!next || !next.startsWith('/') || next.startsWith('//')) {
+    return '/dashboard';
+  }
+  return next;
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
-  const next = searchParams.get('next') ?? '/dashboard';
+  const next = safeNextPath(searchParams.get('next'));
 
   if (code) {
     const supabase = await createClient();

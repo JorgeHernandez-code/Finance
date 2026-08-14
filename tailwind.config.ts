@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import tailwindcssAnimate from 'tailwindcss-animate';
 
 // Tokens de diseño ampliados en Fase 2 (Diseño UI/UX).
 // Se deja aquí la base para tema oscuro/claro vía CSS variables,
@@ -43,7 +44,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [tailwindcssAnimate],
 };
 
 export default config;

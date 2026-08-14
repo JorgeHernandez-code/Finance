@@ -4,7 +4,11 @@ import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { createClient } from '@/infrastructure/supabase/server';
 import { SupabaseAuthRepository } from '@/infrastructure/supabase/repositories/SupabaseAuthRepository';
-import { checkLoginRateLimit } from '@/infrastructure/rate-limit/loginRateLimiter';
+import {
+  checkLoginRateLimit,
+  checkRegisterRateLimit,
+  checkForgotPasswordRateLimit,
+} from '@/infrastructure/rate-limit/loginRateLimiter';
 import { SignIn } from '@/application/use-cases/auth/SignIn';
 import { SignUp } from '@/application/use-cases/auth/SignUp';
 import { SignOut } from '@/application/use-cases/auth/SignOut';
@@ -34,7 +38,9 @@ export async function loginAction(_prevState: ActionState, formData: FormData): 
   const ip = await getClientIp();
   const rateLimit = await checkLoginRateLimit(`${ip}:${input.email.toLowerCase()}`);
   if (!rateLimit.success) {
-    return { error: `Demasiados intentos. Espera ${rateLimit.retryAfterSeconds ?? 60}s e inténtalo de nuevo.` };
+    return {
+      error: `Demasiados intentos. Espera ${rateLimit.retryAfterSeconds ?? 60}s e inténtalo de nuevo.`,
+    };
   }
 
   const supabase = await createClient();
@@ -57,6 +63,14 @@ export async function registerAction(_prevState: ActionState, formData: FormData
     confirmPassword: string;
   };
 
+  const ip = await getClientIp();
+  const rateLimit = await checkRegisterRateLimit(`${ip}:${input.email.toLowerCase()}`);
+  if (!rateLimit.success) {
+    return {
+      error: `Demasiados intentos. Espera ${rateLimit.retryAfterSeconds ?? 60}s e inténtalo de nuevo.`,
+    };
+  }
+
   const supabase = await createClient();
   const signUp = new SignUp(new SupabaseAuthRepository(supabase));
 
@@ -70,10 +84,20 @@ export async function registerAction(_prevState: ActionState, formData: FormData
   return { success: true };
 }
 
-export async function forgotPasswordAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+export async function forgotPasswordAction(
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
   const input = readForm(formData, ['email']) as { email: string };
   const headerList = await headers();
   const origin = headerList.get('origin') ?? '';
+
+  const ip = await getClientIp();
+  const rateLimit = await checkForgotPasswordRateLimit(`${ip}:${input.email.toLowerCase()}`);
+  if (!rateLimit.success) {
+    // Se devuelve success igual para no revelar si el rate-limit es por email o IP existente.
+    return { success: true };
+  }
 
   const supabase = await createClient();
   const requestReset = new RequestPasswordReset(new SupabaseAuthRepository(supabase));
