@@ -22,6 +22,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Recibe de vuelta el login de Google: ver NativeAuthBridge.tsx -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.jorgehernandez.finance" android:host="auth" android:path="/callback" />
+            </intent-filter>
+
         </activity>
 
         <provider

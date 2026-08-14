@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from 'sonner';
 import { TooltipProvider } from '@/presentation/components/ui/tooltip';
+import { NativeAuthBridge } from '@/presentation/components/modules/auth/NativeAuthBridge';
 
 /**
  * Providers globales de la app. Vive en app/ (no en presentation/) porque es
@@ -32,6 +33,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} themes={['dark', 'light']}>
         <TooltipProvider delayDuration={200}>
+          <NativeAuthBridge />
           {children}
           <Toaster
             theme="dark"
