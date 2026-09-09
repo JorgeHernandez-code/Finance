@@ -15,7 +15,7 @@ Se construye como si fuera el día 1 de un SaaS FinTech, aunque el único usuari
 
 | Capa | Tecnología | Motivo |
 |---|---|---|
-| Framework | Next.js 15 (App Router, Server Actions, RSC) | SSR/SSG híbrido, compatible con export estático para Capacitor, ecosistema maduro, despliegue nativo en Netlify |
+| Framework | Next.js 15 (App Router, Server Actions, RSC) | SSR/SSG híbrido, ecosistema maduro, despliegue nativo en Netlify |
 | UI | React 19 + TypeScript strict | Concurrent features, tipado fuerte para datos financieros |
 | Estilos | TailwindCSS + shadcn/ui (Radix) | Accesibilidad de fábrica (Radix), theming vía CSS vars, look Linear/Stripe sin reinventar componentes |
 | Animación | Framer Motion | Transiciones de página, micro-interacciones, glassmorphism animado |
@@ -25,8 +25,8 @@ Se construye como si fuera el día 1 de un SaaS FinTech, aunque el único usuari
 | Formularios | React Hook Form + Zod | Validación de esquema compartida cliente/servidor (misma fuente de verdad) |
 | Backend | Supabase (PostgreSQL + Auth + Storage + Realtime + Edge Functions) | Todo-en-uno gratuito, RLS nativo a nivel de fila, Auth con JWT/refresh ya resuelto, Storage para adjuntos |
 | Hosting web | Netlify (plan gratuito) | Despliegue continuo desde GitHub, Edge Functions, headers/CSP declarativos en `netlify.toml` |
-| Repositorio | GitHub (privado) | Control de versiones, Actions para CI (lint/test/build) |
-| Móvil | Capacitor 6 | Envuelve el build de Next.js (export estático) en un shell nativo Android; ruta directa a Google Play |
+| Repositorio | GitHub (público) | Control de versiones, Actions para CI (lint/typecheck/test/build/audit) |
+| Móvil | Capacitor 6 | El WebView nativo carga el sitio de producción (no un export estático — la app depende de Server Actions, que no pueden vivir en un bundle 100% estático); login de Google vía Chrome Custom Tabs + deep link |
 | Gráficos | Recharts (o Tremor) | Gráficos financieros interactivos, composables con Tailwind |
 | Exportación | `exceljs` (Excel), `pdf-lib`/`@react-pdf/renderer` (PDF), CSV nativo | Reportes descargables |
 | Testing | Vitest + Testing Library (unit/integration), Playwright (E2E) | Rápido, compatible con Next.js 15 |
@@ -61,13 +61,12 @@ finance/
 │   ├── app/                        # Next.js App Router — SOLO routing y layouts
 │   │   ├── (auth)/                 # login, registro, recuperar contraseña
 │   │   ├── (dashboard)/            # rutas protegidas: dashboard, transacciones, etc.
-│   │   ├── api/                    # route handlers (webhooks, exportaciones)
+│   │   ├── auth/callback/          # route handler: intercambio de código OAuth
 │   │   ├── layout.tsx
 │   │   └── globals.css
 │   │
 │   ├── domain/                     # ❤️ CORE — sin dependencias externas
 │   │   ├── entities/                # Transaction, Account, Budget, Debt, SavingsGoal...
-│   │   ├── value-objects/           # Money, CurrencyCode, DateRange...
 │   │   └── repositories/            # INTERFACES: ITransactionRepository, IAccountRepository...
 │   │
 │   ├── application/                 # Casos de uso (orquestan domain + repos)
@@ -83,8 +82,8 @@ finance/
 │   │   │   ├── client.ts            # cliente browser
 │   │   │   ├── server.ts            # cliente server (cookies httpOnly)
 │   │   │   └── repositories/        # SupabaseTransactionRepository implements ITransactionRepository
-│   │   ├── crypto/                  # cifrado AES-256 de campos sensibles
-│   │   └── exporters/               # PDF/Excel/CSV
+│   │   ├── rate-limit/              # login/registro/recuperar contraseña (Upstash + fallback en memoria)
+│   │   └── export/                  # PDF (@react-pdf/renderer), Excel (exceljs), CSV, cifrado de backups
 │   │
 │   ├── presentation/                # UI
 │   │   ├── components/
@@ -95,18 +94,17 @@ finance/
 │   │   └── stores/                  # Zustand: useUIStore, useFilterStore
 │   │
 │   └── shared/
-│       ├── config/                  # constantes, feature flags
+│       ├── config/                  # constantes, navegación, validación de env vars
 │       ├── lib/                     # utils puras (formatMoney, formatDate)
-│       └── types/                   # tipos compartidos
+│       └── types/                   # tipos compartidos (incluye los generados por Supabase)
 │
 ├── supabase/
-│   ├── migrations/                  # SQL versionado
-│   └── seed.sql
+│   └── migrations/                  # 12 migraciones SQL versionadas
 │
-├── android/                         # generado por Capacitor
+├── android/                         # proyecto nativo generado por Capacitor
 ├── capacitor.config.ts
 ├── netlify.toml
-├── __tests__/
+├── __tests__/                       # Vitest (unit) + Playwright (E2E)
 └── docs/                            # este documento y los demás
 ```
 
@@ -134,9 +132,9 @@ Esto permite construir módulo por módulo (como pediste, por fases) sin romper 
 - **Animación:** Framer Motion para transiciones de ruta, entrada de cards (`stagger`), y feedback de acciones (guardar, eliminar).
 - **Componentes base:** shadcn/ui como fundación (Dialog, Sheet, Command palette para el buscador global, DataTable para transacciones).
 
-## 5. Preparación para IA (Fase futura)
+## 5. IA (fase futura, no iniciada)
 
-Se deja un contrato de interfaz desde ya: `application/use-cases/ai/IFinancialInsightService.ts`, implementado en Fase 1 por un stub, y en el futuro por una Edge Function de Supabase que llama a la API de Claude con los datos agregados (nunca datos crudos sensibles sin agregar). Esto evita rediseñar el dashboard cuando se añada el asistente.
+La idea: un asistente financiero que analice gastos agregados (nunca datos crudos sin agregar) vía una Edge Function de Supabase que llame a la API de Claude. Sin código todavía — se deja documentado aquí para no perder la intención de diseño.
 
 ## 6. Escalabilidad hacia SaaS
 

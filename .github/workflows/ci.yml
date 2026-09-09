@@ -34,7 +34,7 @@ jobs:
         run: npm run build
         env:
           # Valores dummy únicamente para que el build no falle por validación
-          # de env vars (ver src/shared/config/env.ts). Nunca secretos reales aquí.
+          # de env vars (ver src/shared/config/env.public.ts). Nunca secretos reales aquí.
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
 

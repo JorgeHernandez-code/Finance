@@ -1,6 +1,6 @@
 # 02 · Base de Datos — PostgreSQL (Supabase)
 
-Modelo relacional normalizado (3FN), con Row Level Security en cada tabla y cifrado a nivel de campo para datos sensibles. `auth.users` lo gestiona Supabase Auth; todo lo demás vive en el esquema `public`.
+Modelo relacional normalizado (3FN), con Row Level Security en cada tabla. `auth.users` lo gestiona Supabase Auth; todo lo demás vive en el esquema `public`.
 
 ## 1. Modelo Entidad-Relación
 
@@ -208,14 +208,13 @@ create policy "select_own_debt_payments"
 
 Esto es lo que hace que un `SELECT * FROM transactions` desde cualquier cliente (incluso con la `anon key` filtrada) **jamás** devuelva datos de otro usuario — la base de datos lo garantiza, no el código de la app.
 
-## 5. Cifrado de datos sensibles (AES-256)
+## 5. Cifrado de datos sensibles
 
-Estrategia de **dos capas**:
+**Implementado:** los backups exportables (Configuración → Respaldo) se cifran client-side con AES-256-GCM (PBKDF2-SHA256, 210k iteraciones, salt e IV aleatorios por archivo) usando una contraseña que solo el usuario conoce — ver `src/infrastructure/export/backupCrypto.ts`.
 
-1. **A nivel de columna (server-side, `pgcrypto`)** para campos como `account_number_encrypted`: `pgp_sym_encrypt(valor, clave)` / `pgp_sym_decrypt()`. La clave simétrica se guarda como secreto en **Supabase Vault**, nunca en el código ni en el repo.
-2. **A nivel de aplicación (client-side, Web Crypto API, AES-256-GCM)** — capa opcional adicional para campos ultra sensibles (notas de deudas, notas de inversión) donde ni siquiera el `service_role` de Supabase debería poder leer el texto plano. La clave de cifrado deriva de una passphrase del usuario (PBKDF2) y nunca se transmite al servidor.
+**Diseñado, no implementado:** cifrado a nivel de columna (server-side, `pgcrypto`) para `account_number_encrypted` — `pgp_sym_encrypt(valor, clave)` / `pgp_sym_decrypt()`, con la clave simétrica en Supabase Vault. La columna existe en el esquema desde la migración inicial, pero ningún caso de uso ni repositorio la lee o escribe todavía; es la deuda técnica más visible del proyecto.
 
-En ambos casos: nunca se cifra el monto de las transacciones (rompería agregaciones/reportes), solo identificadores/notas verdaderamente sensibles.
+En cualquier caso: nunca se cifraría el monto de las transacciones (rompería agregaciones/reportes), solo identificadores/notas verdaderamente sensibles.
 
 ## 6. Vistas útiles (además de las mencionadas arriba)
 
@@ -226,4 +225,4 @@ En ambos casos: nunca se cifra el monto de las transacciones (rompería agregaci
 
 ## 7. Migraciones
 
-Todo el esquema vive versionado en `supabase/migrations/*.sql` (una migración por tabla/feature, nunca editar una migración ya aplicada). Se generan y aplican con `supabase migration new <nombre>` + `supabase db push`. El scaffolding de Fase 1 crea la carpeta lista; el SQL real de cada tabla se entrega en la **Fase 5 (Base de Datos)** de tu roadmap, con datos de prueba (`seed.sql`).
+Todo el esquema vive versionado en `supabase/migrations/*.sql` — 12 migraciones, una por tabla/feature, nunca se edita una ya aplicada a producción. Se generan y aplican con `supabase migration new <nombre>` + `supabase db push`.

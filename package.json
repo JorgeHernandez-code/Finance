@@ -3,6 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "description": "Dashboard financiero personal — Next.js 15 + Supabase + Capacitor",
+  "author": "Jorge Hernández",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JorgeHernandez-code/Finance.git"
+  },
+  "homepage": "https://jorge-finance.netlify.app",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -72,7 +79,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.17.0",
-    "eslint-config-next": "15.1.12",
+    "eslint-config-next": "^15.5.23",
     "husky": "^9.1.7",
     "jsdom": "^25.0.1",
     "lint-staged": "^15.2.11",
