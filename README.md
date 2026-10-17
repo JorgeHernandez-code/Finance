@@ -16,8 +16,9 @@ Lo construí para resolver un problema real (controlar mis propias finanzas — 
 
 ## Funcionalidades
 
-- **12 módulos financieros:** transacciones (con etiquetas, adjuntos, transferencias entre cuentas y recurrencia), categorías con subcategorías, cuentas multi-moneda, presupuestos con alertas por umbral, deudas (como deudor o acreedor) con pagos parciales, metas de ahorro, inversiones con historial de valorización, clientes (ingresos freelance), suscripciones recurrentes.
-- **Dashboard** con patrimonio neto, KPIs del mes, tendencias y gráficos (ingresos/gastos, gasto por categoría).
+- **Finance 2.0** ([detalle](docs/05-FINANCE-2.md)): dinero disponible por moneda (confirmado vs. estimado, reservas, libre), deudas por país y moneda con saldo confirmado/estimado y simulador de pago, Mi Plan Financiero en 6 etapas, Índice de Salud Financiera (personal, explicado ítem por ítem), Academia con 15 lecciones aplicadas a tus datos, Mi progreso (XP, rachas, retos, logros) y patrimonio neto con indicador de integridad.
+- **Módulos financieros:** transacciones (con movimientos entre cuentas), categorías con subcategorías, cuentas multi-moneda, presupuestos con alertas por umbral, deudas (como deudor o acreedor) con pagos parciales, metas de ahorro, inversiones con historial de valorización, clientes (ingresos freelance), suscripciones recurrentes.
+- **Dashboard** como centro de control: registro rápido, disponible, mes en curso, deudas, objetivos, actividad, próximas acciones y recordatorios.
 - **Reportes** exportables a PDF, Excel y CSV.
 - **Calendario** de pagos, vencimientos y renovaciones.
 - **Buscador global** (⌘K) sobre todo el sistema.
@@ -29,7 +30,7 @@ Lo construí para resolver un problema real (controlar mis propias finanzas — 
 
 Este es el área donde más tiempo invertí, así que vale la pena listarla explícitamente en vez de darla por sentada:
 
-- **Row Level Security en el 100% de las tablas** (12 migraciones) — la autorización vive en PostgreSQL, no en el código de la app; ni con la `anon key` filtrada se puede leer o escribir el dato de otro usuario.
+- **Row Level Security en el 100% de las tablas** (15 migraciones, verificado con pruebas sobre Postgres real) — la autorización vive en PostgreSQL, no en el código de la app; ni con la `anon key` filtrada se puede leer o escribir el dato de otro usuario.
 - **Rate limiting** en login, registro y recuperación de contraseña (`@upstash/ratelimit` con degradación automática a un limitador en memoria si no hay Redis configurado).
 - **Secretos de servidor aislados del bundle del cliente**: `env.server.ts` usa el paquete `server-only`, que hace fallar el build si algún componente cliente llega a importarlo — no solo un comentario de "no hacer esto".
 - **CSP estricta y cabeceras de seguridad** declarativas en `netlify.toml` (`X-Frame-Options`, `HSTS`, `Permissions-Policy`, etc.).

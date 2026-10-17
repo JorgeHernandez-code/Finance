@@ -1,10 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/shared/types/database';
-import type { ISubscriptionRepository, SubscriptionInput } from '@/domain/repositories/ISubscriptionRepository';
-import type { Subscription, SubscriptionStatus } from '@/domain/entities/Subscription';
+import type {
+  ISubscriptionRepository,
+  SubscriptionInput,
+} from '@/domain/repositories/ISubscriptionRepository';
+import type {
+  BillingCycle,
+  RecurringKind,
+  Subscription,
+  SubscriptionStatus,
+} from '@/domain/entities/Subscription';
 
 const SELECT_WITH_JOINS =
-  'id, name, category_id, account_id, amount, currency, billing_cycle, next_billing_date, status, icon, color, created_at, categories:category_id(name), accounts:account_id(name)';
+  'id, name, kind, is_essential, debt_id, last_reviewed_at, category_id, account_id, amount, currency, billing_cycle, next_billing_date, status, icon, color, created_at, categories:category_id(name), accounts:account_id(name)';
 
 interface RawSubscriptionRow {
   id: string;
@@ -13,7 +21,11 @@ interface RawSubscriptionRow {
   account_id: string | null;
   amount: number;
   currency: string;
-  billing_cycle: 'weekly' | 'monthly' | 'yearly';
+  billing_cycle: BillingCycle;
+  kind: RecurringKind;
+  is_essential: boolean;
+  debt_id: string | null;
+  last_reviewed_at: string | null;
   next_billing_date: string;
   status: SubscriptionStatus;
   icon: string;
@@ -31,7 +43,11 @@ function mapRow(row: RawSubscriptionRow): Subscription {
     categoryName: row.categories?.name ?? null,
     accountId: row.account_id,
     accountName: row.accounts?.name ?? null,
-    amount: row.amount,
+    amount: Number(row.amount),
+    kind: row.kind,
+    isEssential: row.is_essential,
+    debtId: row.debt_id,
+    lastReviewedAt: row.last_reviewed_at,
     currency: row.currency,
     billingCycle: row.billing_cycle,
     nextBillingDate: row.next_billing_date,
@@ -67,6 +83,9 @@ export class SupabaseSubscriptionRepository implements ISubscriptionRepository {
       .insert({
         user_id: userId,
         name: input.name,
+        kind: input.kind,
+        is_essential: input.isEssential,
+        debt_id: input.kind === 'loan_installment' ? (input.debtId ?? null) : null,
         category_id: input.categoryId ?? null,
         account_id: input.accountId ?? null,
         amount: input.amount,
@@ -92,6 +111,9 @@ export class SupabaseSubscriptionRepository implements ISubscriptionRepository {
       .from('subscriptions')
       .update({
         name: input.name,
+        kind: input.kind,
+        is_essential: input.isEssential,
+        debt_id: input.kind === 'loan_installment' ? (input.debtId ?? null) : null,
         category_id: input.categoryId ?? null,
         account_id: input.accountId ?? null,
         amount: input.amount,
@@ -115,11 +137,27 @@ export class SupabaseSubscriptionRepository implements ISubscriptionRepository {
   }
 
   async setStatus(userId: string, id: string, status: SubscriptionStatus): Promise<void> {
-    const { error } = await this.client.from('subscriptions').update({ status }).eq('id', id).eq('user_id', userId);
+    const { error } = await this.client
+      .from('subscriptions')
+      .update({ status })
+      .eq('id', id)
+      .eq('user_id', userId);
 
     if (error) {
       console.error('[SupabaseSubscriptionRepository.setStatus]', error);
       throw new Error(`No se pudo actualizar el estado: ${error.message}`);
+    }
+  }
+
+  async markReviewed(userId: string, id: string, date: string): Promise<void> {
+    const { error } = await this.client
+      .from('subscriptions')
+      .update({ last_reviewed_at: date })
+      .eq('id', id)
+      .eq('user_id', userId);
+    if (error) {
+      console.error('[SupabaseSubscriptionRepository.markReviewed]', error.code);
+      throw new Error('No se pudo marcar como revisada.');
     }
   }
 

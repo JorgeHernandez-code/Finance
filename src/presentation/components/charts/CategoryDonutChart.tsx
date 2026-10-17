@@ -6,9 +6,18 @@ import type { CategoryBreakdownItem } from '@/domain/entities/DashboardSummary';
 
 interface CategoryDonutChartProps {
   data: CategoryBreakdownItem[];
+  currency?: string;
 }
 
-function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<{ name: string; value: number; payload: CategoryBreakdownItem }> }) {
+function CustomTooltip({
+  active,
+  payload,
+  currency = 'COP',
+}: {
+  active?: boolean;
+  currency?: string;
+  payload?: Array<{ name: string; value: number; payload: CategoryBreakdownItem }>;
+}) {
   if (!active || !payload?.length) return null;
   const item = payload[0]!;
   return (
@@ -16,12 +25,12 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<
       <p className="font-medium" style={{ color: item.payload.color }}>
         {item.name}
       </p>
-      <p className="text-muted-foreground">{formatMoney(item.value)}</p>
+      <p className="text-muted-foreground">{formatMoney(item.value, currency)}</p>
     </div>
   );
 }
 
-export function CategoryDonutChart({ data }: CategoryDonutChartProps) {
+export function CategoryDonutChart({ data, currency = 'COP' }: CategoryDonutChartProps) {
   const total = data.reduce((sum, item) => sum + item.total, 0);
 
   return (
@@ -33,7 +42,7 @@ export function CategoryDonutChart({ data }: CategoryDonutChartProps) {
               <Cell key={item.categoryId} fill={item.color} stroke="transparent" />
             ))}
           </Pie>
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={<CustomTooltip currency={currency} />} />
         </PieChart>
       </ResponsiveContainer>
 

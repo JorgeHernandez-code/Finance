@@ -11,7 +11,9 @@ import {
   type SubscriptionInputDto,
 } from '@/application/dto/subscription';
 import { createSubscriptionAction, updateSubscriptionAction } from '@/app/(dashboard)/subscriptions/actions';
-import type { Subscription } from '@/domain/entities/Subscription';
+import { RECURRING_KIND_LABEL, type Subscription } from '@/domain/entities/Subscription';
+import { todayIso } from '@/shared/lib/dates';
+import { SelectField } from '../shared/FormField';
 import type { TransactionFormOptions } from '@/application/use-cases/transactions/GetTransactionFormOptions';
 import { CURRENCIES } from '@/shared/config/currencies';
 import {
@@ -36,7 +38,9 @@ import { IconPicker } from '@/presentation/components/modules/shared/IconPicker'
 
 const CYCLE_LABELS: Record<SubscriptionInputDto['billingCycle'], string> = {
   weekly: 'Semanal',
+  biweekly: 'Quincenal',
   monthly: 'Mensual',
+  quarterly: 'Trimestral',
   yearly: 'Anual',
 };
 
@@ -44,6 +48,8 @@ interface SubscriptionFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   options: TransactionFormOptions;
+  /** Deudas propias abiertas: una cuota de préstamo se enlaza para no contarla dos veces. */
+  debts: { id: string; creditorName: string }[];
   editing: Subscription | null;
   onSaved: () => void;
 }
@@ -52,18 +58,24 @@ function toFormValues(editing: Subscription | null): SubscriptionInputDto {
   if (!editing) {
     return {
       name: '',
+      kind: 'subscription',
+      isEssential: false,
+      debtId: null,
       categoryId: null,
       accountId: null,
       amount: 0,
       currency: 'COP',
       billingCycle: 'monthly',
-      nextBillingDate: new Date().toISOString().slice(0, 10),
+      nextBillingDate: todayIso(),
       icon: 'refresh',
       color: '#f59e0b',
     };
   }
   return {
     name: editing.name,
+    kind: editing.kind,
+    isEssential: editing.isEssential,
+    debtId: editing.debtId,
     categoryId: editing.categoryId,
     accountId: editing.accountId,
     amount: editing.amount,
@@ -79,6 +91,7 @@ export function SubscriptionFormDialog({
   open,
   onOpenChange,
   options,
+  debts,
   editing,
   onSaved,
 }: SubscriptionFormDialogProps) {
@@ -107,10 +120,13 @@ export function SubscriptionFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{editing ? 'Editar suscripción' : 'Nueva suscripción'}</DialogTitle>
-          <DialogDescription>Pagos recurrentes como streaming, software o membresías.</DialogDescription>
+          <DialogTitle>{editing ? 'Editar gasto recurrente' : 'Nuevo gasto recurrente'}</DialogTitle>
+          <DialogDescription>
+            Arriendo, servicios, suscripciones, cuotas… El pago real se registra como movimiento cuando
+            ocurre.
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
@@ -121,6 +137,42 @@ export function SubscriptionFormDialog({
               <p className="text-xs text-danger">{form.formState.errors.name.message}</p>
             )}
           </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Controller
+              control={form.control}
+              name="kind"
+              render={({ field }) => (
+                <SelectField
+                  label="Tipo"
+                  value={field.value}
+                  onChange={(v) => field.onChange(v ?? 'other')}
+                  options={Object.entries(RECURRING_KIND_LABEL).map(([value, label]) => ({ value, label }))}
+                />
+              )}
+            />
+            {form.watch('kind') === 'loan_installment' && (
+              <Controller
+                control={form.control}
+                name="debtId"
+                render={({ field }) => (
+                  <SelectField
+                    label="Deuda asociada"
+                    value={field.value ?? null}
+                    onChange={field.onChange}
+                    emptyLabel="Sin enlazar"
+                    options={debts.map((d) => ({ value: d.id, label: d.creditorName }))}
+                    hint="Enlazarla evita contar la cuota dos veces."
+                  />
+                )}
+              />
+            )}
+          </div>
+
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" className="size-4 accent-primary" {...form.register('isEssential')} />
+            Es un gasto esencial (necesario para vivir)
+          </label>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
@@ -253,11 +305,7 @@ export function SubscriptionFormDialog({
               Cancelar
             </Button>
             <Button type="submit" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting
-                ? 'Guardando...'
-                : editing
-                  ? 'Guardar cambios'
-                  : 'Crear suscripción'}
+              {form.formState.isSubmitting ? 'Guardando...' : editing ? 'Guardar cambios' : 'Crear'}
             </Button>
           </div>
         </form>

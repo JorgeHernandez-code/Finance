@@ -1,6 +1,8 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
+import { todayIso } from '@/shared/lib/dates';
 import { createClient } from '@/infrastructure/supabase/server';
 import { SupabaseSubscriptionRepository } from '@/infrastructure/supabase/repositories/SupabaseSubscriptionRepository';
 import { CreateSubscription } from '@/application/use-cases/subscriptions/CreateSubscription';
@@ -25,7 +27,9 @@ async function requireUserId() {
   return { supabase, userId: user.id };
 }
 
-export async function createSubscriptionAction(input: SubscriptionInputDto): Promise<SubscriptionActionResult> {
+export async function createSubscriptionAction(
+  input: SubscriptionInputDto
+): Promise<SubscriptionActionResult> {
   try {
     const { supabase, userId } = await requireUserId();
     await new CreateSubscription(new SupabaseSubscriptionRepository(supabase)).execute(userId, input);
@@ -33,10 +37,13 @@ export async function createSubscriptionAction(input: SubscriptionInputDto): Pro
     return { error: error instanceof Error ? error.message : 'No se pudo crear la suscripción.' };
   }
   revalidatePath('/subscriptions');
+  revalidatePath('/dashboard');
   return { success: true };
 }
 
-export async function updateSubscriptionAction(input: UpdateSubscriptionInput): Promise<SubscriptionActionResult> {
+export async function updateSubscriptionAction(
+  input: UpdateSubscriptionInput
+): Promise<SubscriptionActionResult> {
   try {
     const { supabase, userId } = await requireUserId();
     await new UpdateSubscription(new SupabaseSubscriptionRepository(supabase)).execute(userId, input);
@@ -44,6 +51,7 @@ export async function updateSubscriptionAction(input: UpdateSubscriptionInput): 
     return { error: error instanceof Error ? error.message : 'No se pudo actualizar la suscripción.' };
   }
   revalidatePath('/subscriptions');
+  revalidatePath('/dashboard');
   return { success: true };
 }
 
@@ -53,11 +61,27 @@ export async function setSubscriptionStatusAction(
 ): Promise<SubscriptionActionResult> {
   try {
     const { supabase, userId } = await requireUserId();
-    await new SetSubscriptionStatus(new SupabaseSubscriptionRepository(supabase)).execute(userId, { id, status });
+    await new SetSubscriptionStatus(new SupabaseSubscriptionRepository(supabase)).execute(userId, {
+      id,
+      status,
+    });
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'No se pudo actualizar el estado.' };
   }
   revalidatePath('/subscriptions');
+  revalidatePath('/dashboard');
+  return { success: true };
+}
+
+export async function markSubscriptionReviewedAction(id: string): Promise<SubscriptionActionResult> {
+  try {
+    const parsedId = z.string().uuid().parse(id);
+    const { supabase, userId } = await requireUserId();
+    await new SupabaseSubscriptionRepository(supabase).markReviewed(userId, parsedId, todayIso());
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'No se pudo marcar como revisada.' };
+  }
+  for (const path of ['/subscriptions', '/dashboard', '/plan', '/progress'] as const) revalidatePath(path);
   return { success: true };
 }
 
@@ -69,5 +93,6 @@ export async function deleteSubscriptionAction(id: string): Promise<Subscription
     return { error: error instanceof Error ? error.message : 'No se pudo eliminar la suscripción.' };
   }
   revalidatePath('/subscriptions');
+  revalidatePath('/dashboard');
   return { success: true };
 }

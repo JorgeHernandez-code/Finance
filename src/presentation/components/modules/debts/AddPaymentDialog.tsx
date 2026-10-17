@@ -1,84 +1,215 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { z } from 'zod';
 import { addDebtPaymentAction } from '@/app/(dashboard)/debts/actions';
 import type { Debt } from '@/domain/entities/Debt';
 import { formatMoney } from '@/shared/lib/format';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/presentation/components/ui/dialog';
+import { todayIso } from '@/shared/lib/dates';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/presentation/components/ui/dialog';
 import { Button } from '@/presentation/components/ui/button';
 import { Input } from '@/presentation/components/ui/input';
-import { Label } from '@/presentation/components/ui/label';
+import { Field, SelectField } from '../shared/FormField';
 
-const formSchema = z.object({
-  amount: z.coerce.number().positive('El monto debe ser mayor a 0'),
-  paymentDate: z.string().min(1, 'Selecciona una fecha'),
-});
-type FormValues = z.infer<typeof formSchema>;
+export interface PaymentAccountOption {
+  id: string;
+  name: string;
+  currency: string;
+}
+
+export interface PaymentCategoryOption {
+  id: string;
+  name: string;
+}
 
 interface AddPaymentDialogProps {
   debt: Debt | null;
+  accounts: PaymentAccountOption[];
+  expenseCategories: PaymentCategoryOption[];
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }
 
-export function AddPaymentDialog({ debt, onOpenChange, onSaved }: AddPaymentDialogProps) {
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: { amount: 0, paymentDate: new Date().toISOString().slice(0, 10) },
-  });
+export function AddPaymentDialog({
+  debt,
+  accounts,
+  expenseCategories,
+  onOpenChange,
+  onSaved,
+}: AddPaymentDialogProps) {
+  const [amount, setAmount] = useState('');
+  const [interest, setInterest] = useState('');
+  const [fees, setFees] = useState('');
+  const [date, setDate] = useState(todayIso());
+  const [accountId, setAccountId] = useState<string | null>(null);
+  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [notes, setNotes] = useState('');
+  // Una clave por apertura del diálogo: un doble clic o reintento no duplica el pago.
+  const [idempotencyKey, setIdempotencyKey] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (debt) form.reset({ amount: 0, paymentDate: new Date().toISOString().slice(0, 10) });
-  }, [debt, form]);
-
-  const onSubmit = form.handleSubmit(async (values) => {
     if (!debt) return;
-    const result = await addDebtPaymentAction({ debtId: debt.id, ...values });
+    setAmount(debt.installmentAmount ? String(debt.installmentAmount) : '');
+    setInterest('');
+    setFees('');
+    setDate(todayIso());
+    setAccountId(null);
+    setCategoryId(expenseCategories.find((c) => /deuda/i.test(c.name))?.id ?? null);
+    setNotes('');
+    setIdempotencyKey(crypto.randomUUID());
+  }, [debt, expenseCategories]);
+
+  const sameCurrencyAccounts = accounts.filter((a) => a.currency === debt?.currency);
+  const principalPart = Number(amount || 0) - Number(interest || 0) - Number(fees || 0);
+
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!debt) return;
+    setSubmitting(true);
+    const result = await addDebtPaymentAction({
+      debtId: debt.id,
+      amount: Number(amount),
+      paymentDate: date,
+      interestAmount: interest === '' ? null : Number(interest),
+      feesAmount: fees === '' ? null : Number(fees),
+      notes: notes || null,
+      accountId,
+      categoryId,
+      idempotencyKey,
+    });
+    setSubmitting(false);
 
     if (result.error) {
       toast.error(result.error);
       return;
     }
-
-    toast.success('Abono registrado.');
+    toast.success(accountId ? 'Pago registrado y descontado de la cuenta.' : 'Pago registrado.');
     onSaved();
-  });
+  }
+
+  const isMine = debt?.direction === 'i_owe';
 
   return (
     <Dialog open={!!debt} onOpenChange={(open) => !open && onOpenChange(false)}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-md overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Registrar abono</DialogTitle>
+          <DialogTitle>{isMine ? 'Registrar pago' : 'Registrar cobro'}</DialogTitle>
           <DialogDescription>
             {debt && (
               <>
-                Saldo pendiente de &ldquo;{debt.creditorName}&rdquo;:{' '}
-                <span className="font-medium text-foreground">{formatMoney(debt.remainingBalance)}</span>
+                Saldo pendiente {debt.balanceConfirmedAt ? '' : 'estimado '}de &ldquo;{debt.creditorName}
+                &rdquo;:{' '}
+                <span className="font-medium text-foreground">
+                  {formatMoney(debt.remainingBalance, debt.currency)}
+                </span>
               </>
             )}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="payment-amount">Monto</Label>
-            <Input id="payment-amount" type="number" step="0.01" min="0.01" {...form.register('amount')} />
-            {form.formState.errors.amount && <p className="text-xs text-danger">{form.formState.errors.amount.message}</p>}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Monto pagado" htmlFor="payment-amount">
+              <Input
+                id="payment-amount"
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0.01"
+                required
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+            </Field>
+            <Field label="Fecha" htmlFor="payment-date">
+              <Input
+                id="payment-date"
+                type="date"
+                required
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
+            </Field>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="payment-date">Fecha</Label>
-            <Input id="payment-date" type="date" {...form.register('paymentDate')} />
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="De eso, intereses" htmlFor="payment-interest" hint="Vacío si no lo sabes">
+              <Input
+                id="payment-interest"
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0"
+                value={interest}
+                onChange={(e) => setInterest(e.target.value)}
+              />
+            </Field>
+            <Field label="Cargos / seguros" htmlFor="payment-fees">
+              <Input
+                id="payment-fees"
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0"
+                value={fees}
+                onChange={(e) => setFees(e.target.value)}
+              />
+            </Field>
           </div>
+          {(interest || fees) && amount && (
+            <p className="text-xs text-muted-foreground">
+              Abono a capital:{' '}
+              <span className="font-medium text-foreground">
+                {debt ? formatMoney(Math.max(0, principalPart), debt.currency) : ''}
+              </span>
+              . Solo esta parte reduce el saldo.
+            </p>
+          )}
+
+          <SelectField
+            label={isMine ? '¿De qué cuenta salió?' : '¿A qué cuenta entró?'}
+            value={accountId}
+            onChange={setAccountId}
+            emptyLabel="No registrar movimiento de cuenta"
+            options={sameCurrencyAccounts.map((a) => ({ value: a.id, label: a.name }))}
+            hint={
+              sameCurrencyAccounts.length === 0
+                ? `No tienes cuentas en ${debt?.currency}.`
+                : 'Si eliges una cuenta, el movimiento se crea automáticamente: no lo registres otra vez como gasto.'
+            }
+          />
+          {accountId && isMine && (
+            <SelectField
+              label="Categoría del gasto"
+              value={categoryId}
+              onChange={setCategoryId}
+              emptyLabel="Sin categoría"
+              options={expenseCategories.map((c) => ({ value: c.id, label: c.name }))}
+            />
+          )}
+
+          <Field label="Nota (opcional)" htmlFor="payment-notes">
+            <Input
+              id="payment-notes"
+              maxLength={500}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </Field>
+
           <div className="mt-2 flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? 'Guardando...' : 'Registrar abono'}
+            <Button type="submit" disabled={submitting || !idempotencyKey}>
+              {submitting ? 'Guardando...' : 'Registrar'}
             </Button>
           </div>
         </form>

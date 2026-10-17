@@ -14,7 +14,13 @@ export const metadata = { title: 'Transacciones' };
  * la primera página con filtros por defecto y las opciones del formulario
  * (cuentas/categorías/clientes) en paralelo, y se las pasa a TransactionsView.
  */
-export default async function TransactionsPage() {
+export default async function TransactionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ nuevo?: string }>;
+}) {
+  const { nuevo } = await searchParams;
+  const initialAction = nuevo === 'income' || nuevo === 'expense' || nuevo === 'transfer' ? nuevo : undefined;
   const supabase = await createClient();
   const {
     data: { user },
@@ -23,9 +29,19 @@ export default async function TransactionsPage() {
   if (!user) redirect('/login');
 
   const [initialData, options] = await Promise.all([
-    new ListTransactions(new SupabaseTransactionRepository(supabase)).execute(user.id, DEFAULT_TRANSACTION_FILTERS),
+    new ListTransactions(new SupabaseTransactionRepository(supabase)).execute(
+      user.id,
+      DEFAULT_TRANSACTION_FILTERS
+    ),
     new GetTransactionFormOptions(new SupabaseReferenceDataRepository(supabase)).execute(user.id),
   ]);
 
-  return <TransactionsView userId={user.id} initialData={initialData} options={options} />;
+  return (
+    <TransactionsView
+      userId={user.id}
+      initialData={initialData}
+      options={options}
+      initialAction={initialAction}
+    />
+  );
 }

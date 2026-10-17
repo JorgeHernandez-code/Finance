@@ -4,12 +4,13 @@ import type { IBudgetRepository, BudgetInput } from '@/domain/repositories/IBudg
 import type { Budget } from '@/domain/entities/Budget';
 
 const SELECT_WITH_CATEGORY =
-  'id, category_id, amount, period, start_date, end_date, alert_threshold_percent, created_at, categories:category_id(name, color, icon)';
+  'id, category_id, amount, currency, period, start_date, end_date, alert_threshold_percent, created_at, categories:category_id(name, color, icon)';
 
 interface RawBudgetRow {
   id: string;
   category_id: string;
   amount: number;
+  currency: string;
   period: 'monthly' | 'yearly';
   start_date: string;
   end_date: string | null;
@@ -22,6 +23,8 @@ interface ProgressRow {
   spent_amount: number;
   available_amount: number;
   spent_percent: number | null;
+  period_start?: string;
+  period_end?: string;
 }
 
 function mapRow(row: RawBudgetRow, progress?: ProgressRow): Budget {
@@ -31,14 +34,17 @@ function mapRow(row: RawBudgetRow, progress?: ProgressRow): Budget {
     categoryName: row.categories?.name ?? '—',
     categoryColor: row.categories?.color ?? '#64748b',
     categoryIcon: row.categories?.icon ?? 'tag',
-    amount: row.amount,
+    amount: Number(row.amount),
+    currency: row.currency ?? 'COP',
     period: row.period,
+    periodStart: progress?.period_start ?? row.start_date,
+    periodEnd: progress?.period_end ?? row.end_date ?? row.start_date,
     startDate: row.start_date,
     endDate: row.end_date,
     alertThresholdPercent: row.alert_threshold_percent,
-    spentAmount: progress?.spent_amount ?? 0,
-    availableAmount: progress?.available_amount ?? row.amount,
-    spentPercent: progress?.spent_percent ?? 0,
+    spentAmount: Number(progress?.spent_amount ?? 0),
+    availableAmount: Number(progress?.available_amount ?? row.amount),
+    spentPercent: Number(progress?.spent_percent ?? 0),
     createdAt: row.created_at,
   };
 }
@@ -48,10 +54,14 @@ export class SupabaseBudgetRepository implements IBudgetRepository {
 
   async list(userId: string): Promise<Budget[]> {
     const [budgetsRes, progressRes] = await Promise.all([
-      this.client.from('budgets').select(SELECT_WITH_CATEGORY).eq('user_id', userId).order('created_at', { ascending: false }),
+      this.client
+        .from('budgets')
+        .select(SELECT_WITH_CATEGORY)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false }),
       this.client
         .from('v_budget_progress')
-        .select('budget_id, spent_amount, available_amount, spent_percent')
+        .select('budget_id, spent_amount, available_amount, spent_percent, period_start, period_end')
         .eq('user_id', userId),
     ]);
 
@@ -67,11 +77,19 @@ export class SupabaseBudgetRepository implements IBudgetRepository {
     const progressByBudget = new Map(
       (progressRes.data ?? []).map((row) => [
         row.budget_id,
-        { spent_amount: row.spent_amount, available_amount: row.available_amount, spent_percent: row.spent_percent },
+        {
+          spent_amount: row.spent_amount,
+          available_amount: row.available_amount,
+          spent_percent: row.spent_percent,
+          period_start: row.period_start,
+          period_end: row.period_end,
+        },
       ])
     );
 
-    return ((budgetsRes.data ?? []) as unknown as RawBudgetRow[]).map((row) => mapRow(row, progressByBudget.get(row.id)));
+    return ((budgetsRes.data ?? []) as unknown as RawBudgetRow[]).map((row) =>
+      mapRow(row, progressByBudget.get(row.id))
+    );
   }
 
   async create(userId: string, input: BudgetInput): Promise<Budget> {
@@ -120,7 +138,7 @@ export class SupabaseBudgetRepository implements IBudgetRepository {
 
     const { data: progressRow } = await this.client
       .from('v_budget_progress')
-      .select('spent_amount, available_amount, spent_percent')
+      .select('spent_amount, available_amount, spent_percent, period_start, period_end')
       .eq('budget_id', id)
       .maybeSingle();
 

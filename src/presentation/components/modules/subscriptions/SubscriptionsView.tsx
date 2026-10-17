@@ -5,13 +5,24 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Plus, MoreHorizontal, Pencil, Trash2, Pause, Play, Ban } from 'lucide-react';
+import { Plus, MoreHorizontal, Pencil, Trash2, Pause, Play, Ban, CheckCheck } from 'lucide-react';
 import { useSubscriptions } from '@/presentation/hooks/useSubscriptions';
-import { setSubscriptionStatusAction } from '@/app/(dashboard)/subscriptions/actions';
+import {
+  markSubscriptionReviewedAction,
+  setSubscriptionStatusAction,
+} from '@/app/(dashboard)/subscriptions/actions';
 import { getIcon } from '@/shared/config/iconMap';
 import { formatMoney } from '@/shared/lib/format';
+import { totalsBy } from '@/shared/lib/money';
+import { daysBetween, todayIso } from '@/shared/lib/dates';
 import { cn } from '@/shared/lib/utils';
-import type { Subscription, SubscriptionStatus } from '@/domain/entities/Subscription';
+import { monthlyEquivalent } from '@/domain/finance/cashflow';
+import {
+  RECURRING_KIND_LABEL,
+  type Subscription,
+  type SubscriptionStatus,
+} from '@/domain/entities/Subscription';
+import { MoneyByCurrency } from '../shared/Money';
 import type { TransactionFormOptions } from '@/application/use-cases/transactions/GetTransactionFormOptions';
 import { Button } from '@/presentation/components/ui/button';
 import { Badge } from '@/presentation/components/ui/badge';
@@ -25,25 +36,23 @@ import {
 import { SubscriptionFormDialog } from './SubscriptionFormDialog';
 import { DeleteSubscriptionDialog } from './DeleteSubscriptionDialog';
 
-const STATUS_BADGE: Record<SubscriptionStatus, { label: string; variant: 'success' | 'warning' | 'outline' }> = {
+const STATUS_BADGE: Record<
+  SubscriptionStatus,
+  { label: string; variant: 'success' | 'warning' | 'outline' }
+> = {
   active: { label: 'Activa', variant: 'success' },
   paused: { label: 'Pausada', variant: 'warning' },
   cancelled: { label: 'Cancelada', variant: 'outline' },
 };
 
-function monthlyEquivalent(amount: number, cycle: Subscription['billingCycle']): number {
-  if (cycle === 'weekly') return amount * 4.345;
-  if (cycle === 'yearly') return amount / 12;
-  return amount;
-}
-
 interface SubscriptionsViewProps {
   userId: string;
   initialData: Subscription[];
   options: TransactionFormOptions;
+  debts: { id: string; creditorName: string }[];
 }
 
-export function SubscriptionsView({ userId, initialData, options }: SubscriptionsViewProps) {
+export function SubscriptionsView({ userId, initialData, options, debts }: SubscriptionsViewProps) {
   const queryClient = useQueryClient();
   const { data: subscriptions } = useSubscriptions(userId, initialData);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -64,19 +73,44 @@ export function SubscriptionsView({ userId, initialData, options }: Subscription
     invalidate();
   }
 
-  const activeMonthlyTotal = subscriptions
-    .filter((s) => s.status === 'active')
-    .reduce((sum, s) => sum + monthlyEquivalent(s.amount, s.billingCycle), 0);
+  async function handleReviewed(subscription: Subscription) {
+    const result = await markSubscriptionReviewedAction(subscription.id);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success('Marcada como revisada.');
+    invalidate();
+  }
+
+  const active = subscriptions.filter((s) => s.status === 'active');
+  const activeMonthly = totalsBy(
+    active,
+    (s) => s.currency,
+    (s) => monthlyEquivalent(s)
+  );
+  const essentialMonthly = totalsBy(
+    active.filter((s) => s.isEssential),
+    (s) => s.currency,
+    (s) => monthlyEquivalent(s)
+  );
+  const today = todayIso();
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Suscripciones</h1>
-          <p className="text-sm text-muted-foreground">
-            Pagos recurrentes · equivalente a{' '}
-            <span className="font-medium text-foreground">{formatMoney(activeMonthlyTotal)}</span> al mes en activas.
-          </p>
+          <h1 className="text-xl font-semibold tracking-tight">Gastos recurrentes</h1>
+          <div className="flex flex-wrap items-baseline gap-x-2 text-sm text-muted-foreground">
+            Activos, equivalente mensual:{' '}
+            <MoneyByCurrency totals={activeMonthly} className="font-medium text-foreground" />
+            {Object.keys(essentialMonthly).length > 0 && (
+              <>
+                · esenciales:{' '}
+                <MoneyByCurrency totals={essentialMonthly} className="font-medium text-foreground" />
+              </>
+            )}
+          </div>
         </div>
         <Button
           onClick={() => {
@@ -84,14 +118,16 @@ export function SubscriptionsView({ userId, initialData, options }: Subscription
             setDialogOpen(true);
           }}
         >
-          <Plus className="size-4" /> Nueva suscripción
+          <Plus className="size-4" /> Nuevo recurrente
         </Button>
       </div>
 
       {subscriptions.length === 0 ? (
         <div className="glass rounded-lg p-10 text-center">
           <p className="text-sm font-medium text-foreground">Todavía no tienes suscripciones registradas.</p>
-          <p className="mt-1 text-sm text-muted-foreground">Agrega Netflix, Spotify o cualquier pago recurrente.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Agrega Netflix, Spotify o cualquier pago recurrente.
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -117,6 +153,9 @@ export function SubscriptionsView({ userId, initialData, options }: Subscription
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleReviewed(subscription)}>
+                          <CheckCheck className="size-4" /> Marcar como revisada
+                        </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => {
                             setEditing(subscription);
@@ -150,9 +189,18 @@ export function SubscriptionsView({ userId, initialData, options }: Subscription
                   <div>
                     <p className="text-sm font-medium text-foreground">{subscription.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {subscription.categoryName ?? 'Sin categoría'}
+                      {RECURRING_KIND_LABEL[subscription.kind]}
+                      {subscription.categoryName ? ` · ${subscription.categoryName}` : ''}
                       {subscription.accountName ? ` · ${subscription.accountName}` : ''}
                     </p>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {subscription.isEssential && <Badge variant="default">Esencial</Badge>}
+                      {subscription.status === 'active' &&
+                        (!subscription.lastReviewedAt ||
+                          daysBetween(subscription.lastReviewedAt, today) > 90) && (
+                          <Badge variant="outline">Sin revisar en 90 días</Badge>
+                        )}
+                    </div>
                   </div>
 
                   <div className="flex items-end justify-between">
@@ -161,7 +209,8 @@ export function SubscriptionsView({ userId, initialData, options }: Subscription
                         {formatMoney(subscription.amount, subscription.currency)}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Próximo cobro: {format(parseISO(subscription.nextBillingDate), 'd MMM yyyy', { locale: es })}
+                        Próximo cobro:{' '}
+                        {format(parseISO(subscription.nextBillingDate), 'd MMM yyyy', { locale: es })}
                       </p>
                     </div>
                     <Badge variant={status.variant}>{status.label}</Badge>
@@ -177,6 +226,7 @@ export function SubscriptionsView({ userId, initialData, options }: Subscription
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         options={options}
+        debts={debts}
         editing={editing}
         onSaved={() => {
           setDialogOpen(false);

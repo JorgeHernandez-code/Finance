@@ -10,7 +10,7 @@ Cada fase se entregó de forma independiente: estructura de carpetas, código, p
 | **4** | Autenticación | Registro, login, recuperar contraseña, Google OAuth, middleware de rutas protegidas, cierre de sesión por inactividad | ✅ |
 | **5** | Base de datos | 12 migraciones SQL, políticas RLS en cada tabla, vistas, tipos TypeScript generados | ✅ |
 | **6** | Dashboard | KPIs, patrimonio neto, gráficos de ingresos/gastos y por categoría | ✅ |
-| **7** | Transacciones | CRUD, filtros, etiquetas, adjuntos, transferencias entre cuentas, recurrencia | ✅ |
+| **7** | Transacciones | CRUD y filtros (las transferencias llegaron en la fase 23; etiquetas y adjuntos tienen tablas pero no UI) | ✅ |
 | **8** | Categorías | CRUD, color/icono, subcategorías, categorías por defecto al registrarse | ✅ |
 | **9** | Cuentas | Multi-cuenta, multi-moneda, saldos calculados (no editables) | ✅ |
 | **10** | Presupuestos | Por categoría, gastado/disponible/%, alertas por umbral | ✅ |
@@ -25,7 +25,8 @@ Cada fase se entregó de forma independiente: estructura de carpetas, código, p
 | **19** | Configuración | Perfil, moneda, idioma, tema, respaldo cifrado (import/export) | ✅ |
 | **20** | Endurecimiento de seguridad | Rate limiting en todos los flujos de auth, aislamiento de secretos server-only, fix de CSV injection y open redirect, auditoría de dependencias | ✅ |
 | **21** | App móvil (Capacitor) | Proyecto Android nativo, envoltorio WebView sobre producción, login de Google vía Custom Tabs + deep link | ✅ |
-| **22** | IA (fase futura) | Asistente que analiza gastos, detecta gastos innecesarios, propone presupuestos | No iniciada |
+| **22** | IA (fase futura) | Asistente que analiza gastos, detecta gastos innecesarios, propone presupuestos. Requiere autorización explícita antes de enviar datos a un proveedor externo | No iniciada |
+| **23** | Finance 2.0 | Correcciones de cálculo (monedas, doble conteo, presupuestos), transferencias, deudas completas, plan financiero, índice de salud, academia, progreso, patrimonio. Ver [05-FINANCE-2.md](05-FINANCE-2.md) | ✅ (pendiente de aplicar migraciones 0013–0015 en producción) |
 
 ## Deuda técnica consciente
 

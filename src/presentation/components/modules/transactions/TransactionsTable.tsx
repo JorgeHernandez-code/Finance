@@ -2,11 +2,18 @@
 
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { MoreHorizontal, Pencil, Trash2, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2, ArrowUpCircle, ArrowDownCircle, ArrowLeftRight } from 'lucide-react';
 import type { Transaction } from '@/domain/entities/Transaction';
 import { formatMoney } from '@/shared/lib/format';
 import { cn } from '@/shared/lib/utils';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/presentation/components/ui/table';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/presentation/components/ui/table';
 import { Badge } from '@/presentation/components/ui/badge';
 import { Button } from '@/presentation/components/ui/button';
 import {
@@ -28,7 +35,9 @@ export function TransactionsTable({ transactions, isLoading, onEdit, onDelete }:
     return (
       <div className="glass rounded-lg p-10 text-center">
         <p className="text-sm font-medium text-foreground">No hay transacciones con estos filtros.</p>
-        <p className="mt-1 text-sm text-muted-foreground">Ajusta los filtros o registra un nuevo movimiento.</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Ajusta los filtros o registra un nuevo movimiento.
+        </p>
       </div>
     );
   }
@@ -72,14 +81,30 @@ export function TransactionsTable({ transactions, isLoading, onEdit, onDelete }:
               <TableCell className="text-muted-foreground">{transaction.accountName}</TableCell>
               <TableCell className="text-muted-foreground">{transaction.clientName ?? '—'}</TableCell>
               <TableCell className="tabular text-right font-medium">
-                <span className={cn('inline-flex items-center gap-1', transaction.type === 'income' ? 'text-success' : 'text-danger')}>
-                  {transaction.type === 'income' ? (
-                    <ArrowUpCircle className="size-3.5" />
-                  ) : (
-                    <ArrowDownCircle className="size-3.5" />
-                  )}
-                  {formatMoney(transaction.amount, transaction.currency)}
-                </span>
+                {transaction.isTransfer ? (
+                  <span
+                    className="inline-flex items-center gap-1 text-muted-foreground"
+                    title="Transferencia entre cuentas: no es ingreso ni gasto"
+                  >
+                    <ArrowLeftRight className="size-3.5" />
+                    {transaction.type === 'income' ? '+' : '−'}
+                    {formatMoney(transaction.amount, transaction.currency)}
+                  </span>
+                ) : (
+                  <span
+                    className={cn(
+                      'inline-flex items-center gap-1',
+                      transaction.type === 'income' ? 'text-success' : 'text-danger'
+                    )}
+                  >
+                    {transaction.type === 'income' ? (
+                      <ArrowUpCircle className="size-3.5" />
+                    ) : (
+                      <ArrowDownCircle className="size-3.5" />
+                    )}
+                    {formatMoney(transaction.amount, transaction.currency)}
+                  </span>
+                )}
               </TableCell>
               <TableCell>
                 <DropdownMenu>
@@ -90,11 +115,14 @@ export function TransactionsTable({ transactions, isLoading, onEdit, onDelete }:
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => onEdit(transaction)}>
-                      <Pencil className="size-4" /> Editar
-                    </DropdownMenuItem>
+                    {!transaction.isTransfer && (
+                      <DropdownMenuItem onClick={() => onEdit(transaction)}>
+                        <Pencil className="size-4" /> Editar
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem destructive onClick={() => onDelete(transaction)}>
-                      <Trash2 className="size-4" /> Eliminar
+                      <Trash2 className="size-4" />{' '}
+                      {transaction.isTransfer ? 'Eliminar transferencia (ambas cuentas)' : 'Eliminar'}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

@@ -4,11 +4,13 @@ import type { Database } from '@/shared/types/database';
 import type { ICalendarRepository } from '@/domain/repositories/ICalendarRepository';
 import type { CalendarEvent } from '@/domain/entities/CalendarEvent';
 
-type BillingCycle = 'weekly' | 'monthly' | 'yearly';
+import type { BillingCycle } from '@/domain/finance/snapshot';
 
 function advance(date: Date, cycle: BillingCycle): Date {
   if (cycle === 'weekly') return addWeeks(date, 1);
+  if (cycle === 'biweekly') return addWeeks(date, 2);
   if (cycle === 'monthly') return addMonths(date, 1);
+  if (cycle === 'quarterly') return addMonths(date, 3);
   return addYears(date, 1);
 }
 
@@ -53,12 +55,11 @@ export class SupabaseCalendarRepository implements ICalendarRepository {
         .eq('status', 'active'),
       this.client
         .from('debts')
-        .select('id, creditor_name, principal_amount, due_date, direction, status')
+        .select(
+          'id, creditor_name, principal_amount, installment_amount, due_date, next_payment_date, direction, status'
+        )
         .eq('user_id', userId)
-        .in('status', ['active', 'overdue'])
-        .not('due_date', 'is', null)
-        .gte('due_date', from)
-        .lte('due_date', to),
+        .neq('status', 'paid'),
       this.client
         .from('savings_goals')
         .select('id, name, target_amount, target_date, color')
@@ -99,17 +100,38 @@ export class SupabaseCalendarRepository implements ICalendarRepository {
       }
     }
 
+    // Fechas ACORDADAS: próximo pago (cuota) y vencimiento final. Las deudas
+    // sin fecha no aparecen: no hay nada acordado que mostrar.
     for (const debt of debtsRes.data ?? []) {
-      if (!debt.due_date) continue;
-      events.push({
-        id: `debt-${debt.id}`,
-        type: 'debt',
-        title: debt.direction === 'i_owe' ? `Pagar a ${debt.creditor_name}` : `Cobrar a ${debt.creditor_name}`,
-        date: debt.due_date,
-        amount: debt.principal_amount,
-        color: debt.direction === 'i_owe' ? '#ef4444' : '#22c55e',
-        href: '/debts',
-      });
+      const verb = debt.direction === 'i_owe' ? 'Pagar a' : 'Cobrar a';
+      const color = debt.direction === 'i_owe' ? '#ef4444' : '#22c55e';
+      if (debt.next_payment_date && debt.next_payment_date >= from && debt.next_payment_date <= to) {
+        events.push({
+          id: `debt-next-${debt.id}`,
+          type: 'debt',
+          title: `${verb} ${debt.creditor_name} (cuota)`,
+          date: debt.next_payment_date,
+          amount: debt.installment_amount ?? debt.principal_amount,
+          color,
+          href: '/debts',
+        });
+      }
+      if (
+        debt.due_date &&
+        debt.due_date >= from &&
+        debt.due_date <= to &&
+        debt.due_date !== debt.next_payment_date
+      ) {
+        events.push({
+          id: `debt-${debt.id}`,
+          type: 'debt',
+          title: `${verb} ${debt.creditor_name} (vencimiento)`,
+          date: debt.due_date,
+          amount: debt.principal_amount,
+          color,
+          href: '/debts',
+        });
+      }
     }
 
     for (const goal of savingsRes.data ?? []) {

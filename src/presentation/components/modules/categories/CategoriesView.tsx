@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Plus, MoreHorizontal, Pencil, Trash2, Lock } from 'lucide-react';
 import { useCategories } from '@/presentation/hooks/useCategories';
+import { addSuggestedCategoriesAction } from '@/app/(dashboard)/categories/actions';
 import { getIcon } from '@/shared/config/iconMap';
 import type { Category, CategoryType } from '@/domain/entities/Category';
 import { Button } from '@/presentation/components/ui/button';
@@ -38,7 +39,9 @@ function CategoryRow({
   const Icon = getIcon(category.icon);
 
   return (
-    <div className={`flex items-center justify-between rounded-md px-2 py-2 hover:bg-muted/40 ${indented ? 'ml-6' : ''}`}>
+    <div
+      className={`flex items-center justify-between rounded-md px-2 py-2 hover:bg-muted/40 ${indented ? 'ml-6' : ''}`}
+    >
       <div className="flex items-center gap-3">
         <div
           className="flex size-8 items-center justify-center rounded-full"
@@ -71,7 +74,9 @@ function CategoryRow({
             destructive
             onClick={() => {
               if (category.isSystem) {
-                toast.error('No puedes eliminar una categoría del sistema. Puedes editarla o dejarla de usar.');
+                toast.error(
+                  'No puedes eliminar una categoría del sistema. Puedes editarla o dejarla de usar.'
+                );
                 return;
               }
               onDelete(category);
@@ -108,7 +113,9 @@ function CategoryColumn({
         <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-1">
-        {topLevel.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Sin categorías todavía.</p>}
+        {topLevel.length === 0 && (
+          <p className="py-6 text-center text-sm text-muted-foreground">Sin categorías todavía.</p>
+        )}
         {topLevel.map((category) => (
           <div key={category.id}>
             <CategoryRow category={category} indented={false} onEdit={onEdit} onDelete={onDelete} />
@@ -143,21 +150,54 @@ export function CategoriesView({ userId, initialData }: CategoriesViewProps) {
     setDialogOpen(true);
   }
 
+  async function addSuggested() {
+    const result = await addSuggestedCategoriesAction();
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success(
+      result.added
+        ? `Se agregaron ${result.added} categorías sugeridas.`
+        : 'Ya tienes todas las categorías sugeridas.'
+    );
+    invalidate();
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Categorías</h1>
-          <p className="text-sm text-muted-foreground">Organiza tus transacciones por tipo de gasto o ingreso.</p>
+          <p className="text-sm text-muted-foreground">
+            Organiza tus transacciones por tipo de gasto o ingreso.
+          </p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="size-4" /> Nueva categoría
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={addSuggested}>
+            Agregar sugeridas
+          </Button>
+          <Button onClick={openCreate}>
+            <Plus className="size-4" /> Nueva categoría
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <CategoryColumn title="Gastos" type="expense" categories={categories} onEdit={openEdit} onDelete={setDeleting} />
-        <CategoryColumn title="Ingresos" type="income" categories={categories} onEdit={openEdit} onDelete={setDeleting} />
+        <CategoryColumn
+          title="Gastos"
+          type="expense"
+          categories={categories}
+          onEdit={openEdit}
+          onDelete={setDeleting}
+        />
+        <CategoryColumn
+          title="Ingresos"
+          type="income"
+          categories={categories}
+          onEdit={openEdit}
+          onDelete={setDeleting}
+        />
       </div>
 
       <CategoryFormDialog

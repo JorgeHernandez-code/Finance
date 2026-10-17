@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { savingsGoalInputSchema, type SavingsGoalInputDto } from '@/application/dto/savingsGoal';
+import type { SavingsGoalInputDto } from '@/application/dto/savingsGoal';
 import { createSavingsGoalAction, updateSavingsGoalAction } from '@/app/(dashboard)/savings/actions';
-import type { SavingsGoal } from '@/domain/entities/SavingsGoal';
+import { GOAL_STATUS_LABEL, type SavingsGoal, type SavingsGoalStatus } from '@/domain/entities/SavingsGoal';
+import { CURRENCIES } from '@/shared/config/currencies';
 import {
   Dialog,
   DialogContent,
@@ -17,29 +16,50 @@ import {
 import { Button } from '@/presentation/components/ui/button';
 import { Input } from '@/presentation/components/ui/input';
 import { Label } from '@/presentation/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/presentation/components/ui/select';
 import { ColorPicker } from '@/presentation/components/modules/shared/ColorPicker';
 import { IconPicker } from '@/presentation/components/modules/shared/IconPicker';
+import { Field, SelectField } from '../shared/FormField';
+
+export interface GoalAccountOption {
+  id: string;
+  name: string;
+  currency: string;
+}
 
 interface SavingsGoalFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editing: SavingsGoal | null;
+  accounts: GoalAccountOption[];
+  defaultCurrency: string;
   onSaved: () => void;
 }
 
-function toFormValues(editing: SavingsGoal | null): SavingsGoalInputDto {
+interface FormState {
+  name: string;
+  targetAmount: string;
+  currency: string;
+  targetDate: string;
+  accountId: string | null;
+  priority: string;
+  plannedMonthlyContribution: string;
+  isEmergencyFund: boolean;
+  icon: string;
+  color: string;
+  status: SavingsGoalStatus;
+}
+
+function toFormState(editing: SavingsGoal | null, defaultCurrency: string): FormState {
   if (!editing) {
     return {
       name: '',
-      targetAmount: 0,
-      targetDate: null,
+      targetAmount: '',
+      currency: defaultCurrency,
+      targetDate: '',
+      accountId: null,
+      priority: '3',
+      plannedMonthlyContribution: '',
+      isEmergencyFund: false,
       icon: 'target',
       color: '#22c55e',
       status: 'active',
@@ -47,111 +67,183 @@ function toFormValues(editing: SavingsGoal | null): SavingsGoalInputDto {
   }
   return {
     name: editing.name,
-    targetAmount: editing.targetAmount,
-    targetDate: editing.targetDate,
+    targetAmount: String(editing.targetAmount),
+    currency: editing.currency,
+    targetDate: editing.targetDate ?? '',
+    accountId: editing.accountId,
+    priority: String(editing.priority),
+    plannedMonthlyContribution: editing.plannedMonthlyContribution
+      ? String(editing.plannedMonthlyContribution)
+      : '',
+    isEmergencyFund: editing.isEmergencyFund,
     icon: editing.icon,
     color: editing.color,
     status: editing.status,
   };
 }
 
-export function SavingsGoalFormDialog({ open, onOpenChange, editing, onSaved }: SavingsGoalFormDialogProps) {
-  const form = useForm<SavingsGoalInputDto>({
-    resolver: zodResolver(savingsGoalInputSchema),
-    defaultValues: toFormValues(editing),
-  });
+export function SavingsGoalFormDialog({
+  open,
+  onOpenChange,
+  editing,
+  accounts,
+  defaultCurrency,
+  onSaved,
+}: SavingsGoalFormDialogProps) {
+  const [form, setForm] = useState<FormState>(() => toFormState(editing, defaultCurrency));
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (open) form.reset(toFormValues(editing));
-  }, [open, editing, form]);
+    if (open) setForm(toFormState(editing, defaultCurrency));
+  }, [open, editing, defaultCurrency]);
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
+    setForm((f) => ({ ...f, [key]: value }));
+  const accountOptions = accounts.filter((a) => a.currency === form.currency);
+
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setSubmitting(true);
+    const payload: SavingsGoalInputDto = {
+      name: form.name,
+      targetAmount: Number(form.targetAmount),
+      currency: form.currency,
+      targetDate: form.targetDate || null,
+      accountId: accountOptions.some((a) => a.id === form.accountId) ? form.accountId : null,
+      priority: Number(form.priority),
+      plannedMonthlyContribution: form.plannedMonthlyContribution
+        ? Number(form.plannedMonthlyContribution)
+        : null,
+      isEmergencyFund: form.isEmergencyFund,
+      icon: form.icon,
+      color: form.color,
+      status: form.status,
+    };
     const result = editing
-      ? await updateSavingsGoalAction({ ...values, id: editing.id })
-      : await createSavingsGoalAction(values);
-
+      ? await updateSavingsGoalAction({ ...payload, id: editing.id })
+      : await createSavingsGoalAction(payload);
+    setSubmitting(false);
     if (result.error) {
       toast.error(result.error);
       return;
     }
-
     toast.success(editing ? 'Meta actualizada.' : 'Meta creada.');
     onSaved();
-  });
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editing ? 'Editar meta de ahorro' : 'Nueva meta de ahorro'}</DialogTitle>
-          <DialogDescription>Ponte un objetivo y ve registrando tus aportes.</DialogDescription>
+          <DialogDescription>
+            Los aportes son dinero que apartas dentro de tus cuentas: Finance no mueve dinero ni reserva nada
+            por su cuenta.
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="name">Nombre</Label>
-            <Input id="name" placeholder="Ej. Vacaciones" {...form.register('name')} />
-            {form.formState.errors.name && (
-              <p className="text-xs text-danger">{form.formState.errors.name.message}</p>
-            )}
-          </div>
+          <Field label="Nombre" htmlFor="goal-name">
+            <Input
+              id="goal-name"
+              required
+              maxLength={80}
+              placeholder="Ej. Fondo de emergencia"
+              value={form.name}
+              onChange={(e) => set('name', e.target.value)}
+            />
+          </Field>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="targetAmount">Monto objetivo</Label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="size-4 accent-primary"
+              checked={form.isEmergencyFund}
+              onChange={(e) => set('isEmergencyFund', e.target.checked)}
+            />
+            Es mi fondo de emergencia
+          </label>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Field label="Monto objetivo" htmlFor="goal-target">
               <Input
-                id="targetAmount"
+                id="goal-target"
                 type="number"
+                inputMode="decimal"
                 step="0.01"
                 min="0.01"
-                {...form.register('targetAmount')}
+                required
+                value={form.targetAmount}
+                onChange={(e) => set('targetAmount', e.target.value)}
               />
-              {form.formState.errors.targetAmount && (
-                <p className="text-xs text-danger">{form.formState.errors.targetAmount.message}</p>
-              )}
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="targetDate">Fecha objetivo (opcional)</Label>
-              <Input id="targetDate" type="date" {...form.register('targetDate')} />
-            </div>
+            </Field>
+            <SelectField
+              label="Moneda"
+              value={form.currency}
+              onChange={(v) => set('currency', v ?? defaultCurrency)}
+              options={CURRENCIES.map((c) => ({ value: c.code, label: c.code }))}
+            />
+            <Field label="Fecha objetivo" htmlFor="goal-date" hint="Opcional">
+              <Input
+                id="goal-date"
+                type="date"
+                value={form.targetDate}
+                onChange={(e) => set('targetDate', e.target.value)}
+              />
+            </Field>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label>Estado</Label>
-            <Controller
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Activa</SelectItem>
-                    <SelectItem value="completed">Completada</SelectItem>
-                    <SelectItem value="archived">Archivada</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <SelectField
+              label="Cuenta donde se aparta"
+              value={form.accountId}
+              onChange={(v) => set('accountId', v)}
+              emptyLabel="Sin cuenta específica"
+              options={accountOptions.map((a) => ({ value: a.id, label: a.name }))}
             />
+            <SelectField
+              label="Prioridad"
+              value={form.priority}
+              onChange={(v) => set('priority', v ?? '3')}
+              options={[
+                { value: '1', label: '1 · Máxima' },
+                { value: '2', label: '2 · Alta' },
+                { value: '3', label: '3 · Media' },
+                { value: '4', label: '4 · Baja' },
+                { value: '5', label: '5 · Mínima' },
+              ]}
+            />
+            <Field label="Aporte mensual propuesto" htmlFor="goal-planned" hint="Lo que crees poder aportar">
+              <Input
+                id="goal-planned"
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0"
+                value={form.plannedMonthlyContribution}
+                onChange={(e) => set('plannedMonthlyContribution', e.target.value)}
+              />
+            </Field>
           </div>
+
+          {editing && (
+            <SelectField
+              label="Estado"
+              value={form.status}
+              onChange={(v) => set('status', (v as SavingsGoalStatus) ?? 'active')}
+              options={Object.entries(GOAL_STATUS_LABEL).map(([value, label]) => ({ value, label }))}
+              hint="Pausar o cancelar conserva todo el historial de aportes."
+            />
+          )}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label>Ícono</Label>
-              <Controller
-                control={form.control}
-                name="icon"
-                render={({ field }) => <IconPicker value={field.value} onChange={field.onChange} />}
-              />
+              <IconPicker value={form.icon} onChange={(v) => set('icon', v)} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label>Color</Label>
-              <Controller
-                control={form.control}
-                name="color"
-                render={({ field }) => <ColorPicker value={field.value} onChange={field.onChange} />}
-              />
+              <ColorPicker value={form.color} onChange={(v) => set('color', v)} />
             </div>
           </div>
 
@@ -159,8 +251,8 @@ export function SavingsGoalFormDialog({ open, onOpenChange, editing, onSaved }: 
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? 'Guardando...' : editing ? 'Guardar cambios' : 'Crear meta'}
+            <Button type="submit" disabled={submitting}>
+              {submitting ? 'Guardando...' : editing ? 'Guardar cambios' : 'Crear meta'}
             </Button>
           </div>
         </form>

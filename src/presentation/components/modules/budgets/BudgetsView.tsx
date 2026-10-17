@@ -7,6 +7,8 @@ import { useBudgets } from '@/presentation/hooks/useBudgets';
 import { getIcon } from '@/shared/config/iconMap';
 import { formatMoney, formatPercent } from '@/shared/lib/format';
 import { cn } from '@/shared/lib/utils';
+import { todayIso } from '@/shared/lib/dates';
+import { projectBudget } from '@/domain/finance/cashflow';
 import type { Budget } from '@/domain/entities/Budget';
 import type { CategoryOption } from '@/domain/entities/ReferenceOption';
 import { Button } from '@/presentation/components/ui/button';
@@ -25,6 +27,22 @@ interface BudgetsViewProps {
   userId: string;
   initialData: Budget[];
   categories: CategoryOption[];
+  /** Meses completos con movimientos: sin historial no se proyecta. */
+  monthsOfHistory: number;
+}
+
+function ProjectionLine({ budget, monthsOfHistory }: { budget: Budget; monthsOfHistory: number }) {
+  const p = projectBudget(
+    { spent: budget.spentAmount, periodStart: budget.periodStart, periodEnd: budget.periodEnd },
+    todayIso(),
+    monthsOfHistory
+  );
+  if (p.projected === null) return <span>Proyección: {p.reason}</span>;
+  return (
+    <span className={p.projected > budget.amount ? 'text-warning' : undefined}>
+      Proyección al cierre (aprox., a este ritmo): {formatMoney(p.projected, budget.currency)}
+    </span>
+  );
 }
 
 function progressTone(spentPercent: number, alertThresholdPercent: number): { bar: string; text: string } {
@@ -33,7 +51,7 @@ function progressTone(spentPercent: number, alertThresholdPercent: number): { ba
   return { bar: 'bg-success', text: 'text-success' };
 }
 
-export function BudgetsView({ userId, initialData, categories }: BudgetsViewProps) {
+export function BudgetsView({ userId, initialData, categories, monthsOfHistory }: BudgetsViewProps) {
   const queryClient = useQueryClient();
   const { data: budgets } = useBudgets(userId, initialData);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -49,7 +67,9 @@ export function BudgetsView({ userId, initialData, categories }: BudgetsViewProp
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Presupuestos</h1>
-          <p className="text-sm text-muted-foreground">Límites de gasto por categoría, con aviso al acercarte al tope.</p>
+          <p className="text-sm text-muted-foreground">
+            Límites por categoría para el mes (o año) en curso. Son una planificación: no cuentan como pagos.
+          </p>
         </div>
         <Button
           onClick={() => {
@@ -64,7 +84,9 @@ export function BudgetsView({ userId, initialData, categories }: BudgetsViewProp
       {budgets.length === 0 ? (
         <div className="glass rounded-lg p-10 text-center">
           <p className="text-sm font-medium text-foreground">Todavía no tienes presupuestos.</p>
-          <p className="mt-1 text-sm text-muted-foreground">Crea uno para controlar cuánto gastas por categoría.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Crea uno para controlar cuánto gastas por categoría.
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -85,7 +107,9 @@ export function BudgetsView({ userId, initialData, categories }: BudgetsViewProp
                       </div>
                       <div>
                         <p className="text-sm font-medium text-foreground">{budget.categoryName}</p>
-                        <p className="text-xs text-muted-foreground">{budget.period === 'monthly' ? 'Mensual' : 'Anual'}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {budget.period === 'monthly' ? 'Mensual' : 'Anual'}
+                        </p>
                       </div>
                     </div>
                     <DropdownMenu>
@@ -114,11 +138,25 @@ export function BudgetsView({ userId, initialData, categories }: BudgetsViewProp
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-baseline justify-between">
                       <span className="tabular text-sm font-medium text-foreground">
-                        {formatMoney(budget.spentAmount)} <span className="text-muted-foreground">/ {formatMoney(budget.amount)}</span>
+                        {formatMoney(budget.spentAmount, budget.currency)}{' '}
+                        <span className="text-muted-foreground">
+                          / {formatMoney(budget.amount, budget.currency)}
+                        </span>
                       </span>
-                      <span className={cn('text-xs font-medium', tone.text)}>{formatPercent(budget.spentPercent)}</span>
+                      <span className={cn('text-xs font-medium', tone.text)}>
+                        {formatPercent(budget.spentPercent)}
+                      </span>
                     </div>
-                    <Progress value={budget.spentPercent} indicatorClassName={tone.bar} />
+                    <Progress value={Math.min(100, budget.spentPercent)} indicatorClassName={tone.bar} />
+                    <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+                      <span>
+                        {budget.availableAmount >= 0
+                          ? `Quedan ${formatMoney(budget.availableAmount, budget.currency)}`
+                          : `Te pasaste por ${formatMoney(-budget.availableAmount, budget.currency)}`}{' '}
+                        · periodo {budget.periodStart} a {budget.periodEnd}
+                      </span>
+                      <ProjectionLine budget={budget} monthsOfHistory={monthsOfHistory} />
+                    </div>
                   </div>
                 </CardContent>
               </Card>

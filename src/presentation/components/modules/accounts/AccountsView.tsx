@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Plus, MoreHorizontal, Pencil, Trash2, Archive, ArchiveRestore } from 'lucide-react';
+import { Plus, MoreHorizontal, Pencil, Trash2, Archive, ArchiveRestore, Scale } from 'lucide-react';
+import { daysBetween, todayIso } from '@/shared/lib/dates';
+import { RECONCILIATION_FRESH_DAYS } from '@/domain/finance/availability';
 import { useAccounts } from '@/presentation/hooks/useAccounts';
 import { setAccountArchivedAction } from '@/app/(dashboard)/accounts/actions';
 import { getIcon } from '@/shared/config/iconMap';
@@ -21,6 +23,7 @@ import {
 } from '@/presentation/components/ui/dropdown-menu';
 import { AccountFormDialog } from './AccountFormDialog';
 import { DeleteAccountDialog } from './DeleteAccountDialog';
+import { ReconcileDialog } from './ReconcileDialog';
 
 const TYPE_LABELS: Record<Account['type'], string> = {
   cash: 'Efectivo',
@@ -33,6 +36,8 @@ const TYPE_LABELS: Record<Account['type'], string> = {
 interface AccountsViewProps {
   userId: string;
   initialData: Account[];
+  /** Última conciliación por cuenta. */
+  reconciliations: Record<string, { date: string; difference: number }>;
 }
 
 function AccountCard({
@@ -40,11 +45,15 @@ function AccountCard({
   onEdit,
   onDelete,
   onToggleArchived,
+  onReconcile,
+  reconciliation,
 }: {
   account: Account;
   onEdit: (account: Account) => void;
   onDelete: (account: Account) => void;
   onToggleArchived: (account: Account) => void;
+  onReconcile: (account: Account) => void;
+  reconciliation?: { date: string; difference: number };
 }) {
   const Icon = getIcon(account.icon);
 
@@ -66,6 +75,11 @@ function AccountCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              {!account.isArchived && (
+                <DropdownMenuItem onClick={() => onReconcile(account)}>
+                  <Scale className="size-4" /> Conciliar saldo
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => onEdit(account)}>
                 <Pencil className="size-4" /> Editar
               </DropdownMenuItem>
@@ -99,19 +113,28 @@ function AccountCard({
           <p className="tabular text-lg font-semibold text-foreground">
             {formatMoney(account.currentBalance, account.currency)}
           </p>
-          {account.isArchived && <Badge variant="outline">Archivada</Badge>}
+          {account.isArchived ? (
+            <Badge variant="outline">Archivada</Badge>
+          ) : reconciliation && daysBetween(reconciliation.date, todayIso()) <= RECONCILIATION_FRESH_DAYS ? (
+            <Badge variant={reconciliation.difference === 0 ? 'success' : 'warning'}>
+              {reconciliation.difference === 0 ? 'Conciliada' : 'Con diferencia'}
+            </Badge>
+          ) : (
+            <Badge variant="outline">Saldo sin confirmar</Badge>
+          )}
         </div>
       </CardContent>
     </Card>
   );
 }
 
-export function AccountsView({ userId, initialData }: AccountsViewProps) {
+export function AccountsView({ userId, initialData, reconciliations }: AccountsViewProps) {
   const queryClient = useQueryClient();
   const { data: accounts } = useAccounts(userId, initialData);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Account | null>(null);
   const [deleting, setDeleting] = useState<Account | null>(null);
+  const [reconciling, setReconciling] = useState<Account | null>(null);
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ['accounts', userId] });
@@ -140,7 +163,9 @@ export function AccountsView({ userId, initialData }: AccountsViewProps) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Cuentas</h1>
-          <p className="text-sm text-muted-foreground">Dónde vive tu dinero: bancos, efectivo, billeteras y tarjetas.</p>
+          <p className="text-sm text-muted-foreground">
+            Dónde vive tu dinero: bancos, efectivo, billeteras y tarjetas.
+          </p>
         </div>
         <Button onClick={openCreate}>
           <Plus className="size-4" /> Nueva cuenta
@@ -150,7 +175,9 @@ export function AccountsView({ userId, initialData }: AccountsViewProps) {
       {active.length === 0 && archived.length === 0 && (
         <div className="glass rounded-lg p-10 text-center">
           <p className="text-sm font-medium text-foreground">Todavía no tienes cuentas.</p>
-          <p className="mt-1 text-sm text-muted-foreground">Crea la primera para poder registrar transacciones.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Crea la primera para poder registrar transacciones.
+          </p>
         </div>
       )}
 
@@ -166,6 +193,8 @@ export function AccountsView({ userId, initialData }: AccountsViewProps) {
               }}
               onDelete={setDeleting}
               onToggleArchived={handleToggleArchived}
+              onReconcile={setReconciling}
+              reconciliation={reconciliations[account.id]}
             />
           ))}
         </div>
@@ -185,6 +214,7 @@ export function AccountsView({ userId, initialData }: AccountsViewProps) {
                 }}
                 onDelete={setDeleting}
                 onToggleArchived={handleToggleArchived}
+                onReconcile={setReconciling}
               />
             ))}
           </div>
@@ -200,6 +230,8 @@ export function AccountsView({ userId, initialData }: AccountsViewProps) {
           invalidate();
         }}
       />
+
+      <ReconcileDialog account={reconciling} onOpenChange={(o) => !o && setReconciling(null)} />
 
       <DeleteAccountDialog
         account={deleting}

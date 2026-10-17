@@ -1,4 +1,6 @@
 import { redirect } from 'next/navigation';
+import { SupabaseFinancialSnapshotRepository } from '@/infrastructure/supabase/repositories/SupabaseFinancialSnapshotRepository';
+import { completeMonthsWithData } from '@/domain/finance/cashflow';
 import { createClient } from '@/infrastructure/supabase/server';
 import { SupabaseBudgetRepository } from '@/infrastructure/supabase/repositories/SupabaseBudgetRepository';
 import { SupabaseReferenceDataRepository } from '@/infrastructure/supabase/repositories/SupabaseReferenceDataRepository';
@@ -16,10 +18,18 @@ export default async function BudgetsPage() {
   if (!user) redirect('/login');
 
   const referenceData = new SupabaseReferenceDataRepository(supabase);
-  const [budgets, categories] = await Promise.all([
+  const [budgets, categories, snapshot] = await Promise.all([
     new ListBudgets(new SupabaseBudgetRepository(supabase)).execute(user.id),
     referenceData.listCategories(user.id),
+    new SupabaseFinancialSnapshotRepository(supabase).load(user.id),
   ]);
 
-  return <BudgetsView userId={user.id} initialData={budgets} categories={categories} />;
+  return (
+    <BudgetsView
+      userId={user.id}
+      initialData={budgets}
+      categories={categories}
+      monthsOfHistory={completeMonthsWithData(snapshot)}
+    />
+  );
 }

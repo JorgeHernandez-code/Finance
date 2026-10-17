@@ -14,8 +14,15 @@ import { Button } from '@/presentation/components/ui/button';
 import { Input } from '@/presentation/components/ui/input';
 import { Label } from '@/presentation/components/ui/label';
 import { Textarea } from '@/presentation/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/presentation/components/ui/select';
 import { cn } from '@/shared/lib/utils';
+import { todayIso } from '@/shared/lib/dates';
 
 const NO_CLIENT = 'none';
 
@@ -24,20 +31,27 @@ interface TransactionFormSheetProps {
   onOpenChange: (open: boolean) => void;
   options: TransactionFormOptions;
   editing: Transaction | null;
+  /** Tipo inicial al crear (gasto por defecto). */
+  defaultType?: 'income' | 'expense';
   onSaved: () => void;
 }
 
-function toFormValues(editing: Transaction | null): TransactionInputDto {
+function toFormValues(
+  editing: Transaction | null,
+  defaultType: 'income' | 'expense' = 'expense'
+): TransactionInputDto {
   if (!editing) {
     return {
       accountId: '',
       categoryId: '',
       clientId: null,
-      type: 'expense',
+      type: defaultType,
       amount: 0,
       description: '',
       notes: '',
-      transactionDate: new Date().toISOString().slice(0, 10),
+      // Fecha LOCAL (toISOString daba el día siguiente en Colombia/Chile después de las 19-21 h).
+      transactionDate: todayIso(),
+      idempotencyKey: crypto.randomUUID(),
     };
   }
   return {
@@ -58,15 +72,22 @@ function toFormValues(editing: Transaction | null): TransactionInputDto {
  * tipo y valores por defecto que cambian al editar — más simple de manejar
  * como estado de formulario que leyendo FormData a mano.
  */
-export function TransactionFormSheet({ open, onOpenChange, options, editing, onSaved }: TransactionFormSheetProps) {
+export function TransactionFormSheet({
+  open,
+  onOpenChange,
+  options,
+  editing,
+  defaultType = 'expense',
+  onSaved,
+}: TransactionFormSheetProps) {
   const form = useForm<TransactionInputDto>({
     resolver: zodResolver(transactionInputSchema),
-    defaultValues: toFormValues(editing),
+    defaultValues: toFormValues(editing, defaultType),
   });
 
   useEffect(() => {
-    if (open) form.reset(toFormValues(editing));
-  }, [open, editing, form]);
+    if (open) form.reset(toFormValues(editing, defaultType));
+  }, [open, editing, defaultType, form]);
 
   const type = form.watch('type');
   const filteredCategories = options.categories.filter((c) => c.type === type);
@@ -106,7 +127,9 @@ export function TransactionFormSheet({ open, onOpenChange, options, editing, onS
               }}
               className={cn(
                 'flex items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium transition-colors',
-                type === 'expense' ? 'border-danger bg-danger/10 text-danger' : 'text-muted-foreground hover:bg-muted'
+                type === 'expense'
+                  ? 'border-danger bg-danger/10 text-danger'
+                  : 'text-muted-foreground hover:bg-muted'
               )}
             >
               <ArrowDownCircle className="size-4" /> Gasto
@@ -119,7 +142,9 @@ export function TransactionFormSheet({ open, onOpenChange, options, editing, onS
               }}
               className={cn(
                 'flex items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium transition-colors',
-                type === 'income' ? 'border-success bg-success/10 text-success' : 'text-muted-foreground hover:bg-muted'
+                type === 'income'
+                  ? 'border-success bg-success/10 text-success'
+                  : 'text-muted-foreground hover:bg-muted'
               )}
             >
               <ArrowUpCircle className="size-4" /> Ingreso
@@ -233,7 +258,11 @@ export function TransactionFormSheet({ open, onOpenChange, options, editing, onS
               Cancelar
             </Button>
             <Button type="submit" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? 'Guardando...' : editing ? 'Guardar cambios' : 'Crear transacción'}
+              {form.formState.isSubmitting
+                ? 'Guardando...'
+                : editing
+                  ? 'Guardar cambios'
+                  : 'Crear transacción'}
             </Button>
           </div>
         </form>

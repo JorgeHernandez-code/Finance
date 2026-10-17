@@ -16,10 +16,24 @@ export default async function SubscriptionsPage() {
 
   if (!user) redirect('/login');
 
-  const [subscriptions, options] = await Promise.all([
+  const [subscriptions, options, debts] = await Promise.all([
     new ListSubscriptions(new SupabaseSubscriptionRepository(supabase)).execute(user.id),
     new GetTransactionFormOptions(new SupabaseReferenceDataRepository(supabase)).execute(user.id),
+    supabase
+      .from('debts')
+      .select('id, creditor_name')
+      .eq('user_id', user.id)
+      .eq('direction', 'i_owe')
+      .neq('status', 'paid')
+      .order('creditor_name'),
   ]);
 
-  return <SubscriptionsView userId={user.id} initialData={subscriptions} options={options} />;
+  return (
+    <SubscriptionsView
+      userId={user.id}
+      initialData={subscriptions}
+      options={options}
+      debts={(debts.data ?? []).map((d) => ({ id: d.id, creditorName: d.creditor_name }))}
+    />
+  );
 }

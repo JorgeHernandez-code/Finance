@@ -1,157 +1,154 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/shared/types/database';
-import type { IDebtRepository, DebtInput, DebtPaymentInput } from '@/domain/repositories/IDebtRepository';
-import type { Debt } from '@/domain/entities/Debt';
+import type {
+  IDebtRepository,
+  DebtInput,
+  DebtPaymentInput,
+  DebtBalanceConfirmation,
+} from '@/domain/repositories/IDebtRepository';
+import type { Debt, DebtPayment } from '@/domain/entities/Debt';
+import { friendlyDbError, mapDebt, num, numOrNull } from '../mappers';
 
-interface RawDebtRow {
-  id: string;
-  creditor_name: string;
-  direction: 'i_owe' | 'owed_to_me';
-  principal_amount: number;
-  interest_rate: number | null;
-  start_date: string;
-  due_date: string | null;
-  status: 'active' | 'paid' | 'overdue';
-  notes: string | null;
-  created_at: string;
-}
-
-interface BalanceRow {
-  total_paid: number;
-  remaining_balance: number;
-}
-
-function mapRow(row: RawDebtRow, balance?: BalanceRow): Debt {
+function toRow(input: DebtInput) {
   return {
-    id: row.id,
-    creditorName: row.creditor_name,
-    direction: row.direction,
-    principalAmount: row.principal_amount,
-    interestRate: row.interest_rate,
-    startDate: row.start_date,
-    dueDate: row.due_date,
-    status: row.status,
-    notes: row.notes,
-    totalPaid: balance?.total_paid ?? 0,
-    remainingBalance: balance?.remaining_balance ?? row.principal_amount,
-    createdAt: row.created_at,
+    creditor_name: input.creditorName,
+    direction: input.direction,
+    kind: input.kind,
+    currency: input.currency,
+    country: input.country ?? null,
+    principal_amount: input.principalAmount,
+    interest_rate: input.interestRate ?? null,
+    interest_rate_period: input.interestRate ? (input.interestRatePeriod ?? null) : null,
+    start_date: input.startDate,
+    due_date: input.dueDate ?? null,
+    next_payment_date: input.nextPaymentDate ?? null,
+    installment_amount: input.installmentAmount ?? null,
+    installments_total: input.installmentsTotal ?? null,
+    status: input.status,
+    priority: input.priority ?? null,
+    negotiable: input.negotiable,
+    notes: input.notes ?? null,
   };
 }
 
 export class SupabaseDebtRepository implements IDebtRepository {
   constructor(private readonly client: SupabaseClient<Database>) {}
 
-  private async getBalance(id: string): Promise<BalanceRow | undefined> {
-    const { data } = await this.client
-      .from('v_debt_balance')
-      .select('total_paid, remaining_balance')
-      .eq('debt_id', id)
-      .maybeSingle();
-    return data ?? undefined;
+  private async getOne(userId: string, id: string): Promise<Debt> {
+    const [debtRes, balanceRes] = await Promise.all([
+      this.client.from('debts').select('*').eq('id', id).eq('user_id', userId).single(),
+      this.client.from('v_debt_balance').select('*').eq('debt_id', id).maybeSingle(),
+    ]);
+    if (debtRes.error) throw new Error('No se pudo recargar la deuda.');
+    return mapDebt(debtRes.data, balanceRes.data ?? undefined);
   }
 
   async list(userId: string): Promise<Debt[]> {
     const [debtsRes, balancesRes] = await Promise.all([
       this.client.from('debts').select('*').eq('user_id', userId).order('status').order('due_date'),
-      this.client.from('v_debt_balance').select('debt_id, total_paid, remaining_balance').eq('user_id', userId),
+      this.client.from('v_debt_balance').select('*').eq('user_id', userId),
     ]);
 
     if (debtsRes.error) {
-      console.error('[SupabaseDebtRepository.list]', debtsRes.error);
-      throw new Error(`No se pudieron cargar las deudas: ${debtsRes.error.message}`);
+      console.error('[SupabaseDebtRepository.list]', debtsRes.error.code);
+      throw new Error('No se pudieron cargar las deudas.');
     }
     if (balancesRes.error) {
-      console.error('[SupabaseDebtRepository.list balances]', balancesRes.error);
-      throw new Error(`No se pudo calcular el saldo de las deudas: ${balancesRes.error.message}`);
+      console.error('[SupabaseDebtRepository.list balances]', balancesRes.error.code);
+      throw new Error('No se pudo calcular el saldo de las deudas.');
     }
 
-    const balanceByDebt = new Map(
-      (balancesRes.data ?? []).map((row) => [row.debt_id, { total_paid: row.total_paid, remaining_balance: row.remaining_balance }])
-    );
+    const balanceByDebt = new Map((balancesRes.data ?? []).map((row) => [row.debt_id, row]));
+    return (debtsRes.data ?? []).map((row) => mapDebt(row, balanceByDebt.get(row.id)));
+  }
 
-    return (debtsRes.data ?? []).map((row) => mapRow(row, balanceByDebt.get(row.id)));
+  async listPayments(userId: string, debtId: string): Promise<DebtPayment[]> {
+    // RLS ya limita debt_payments a deudas propias; el filtro por deuda propia es defensa adicional.
+    const { data: owner } = await this.client
+      .from('debts')
+      .select('id')
+      .eq('id', debtId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (!owner) return [];
+    const { data, error } = await this.client
+      .from('debt_payments')
+      .select('*')
+      .eq('debt_id', debtId)
+      .order('payment_date', { ascending: false });
+    if (error) throw new Error('No se pudo cargar el historial de pagos.');
+    return (data ?? []).map((p) => ({
+      id: p.id,
+      debtId: p.debt_id,
+      amount: num(p.amount),
+      paymentDate: p.payment_date,
+      interestAmount: numOrNull(p.interest_amount),
+      feesAmount: numOrNull(p.fees_amount),
+      transactionId: p.transaction_id ?? null,
+      notes: p.notes,
+      createdAt: p.created_at,
+    }));
   }
 
   async create(userId: string, input: DebtInput): Promise<Debt> {
     const { data, error } = await this.client
       .from('debts')
-      .insert({
-        user_id: userId,
-        creditor_name: input.creditorName,
-        direction: input.direction,
-        principal_amount: input.principalAmount,
-        interest_rate: input.interestRate ?? null,
-        start_date: input.startDate,
-        due_date: input.dueDate ?? null,
-        status: input.status,
-        notes: input.notes ?? null,
-      })
+      .insert({ user_id: userId, ...toRow(input) })
       .select('*')
       .single();
 
     if (error) {
-      console.error('[SupabaseDebtRepository.create]', error);
-      throw new Error(`No se pudo crear la deuda: ${error.message}`);
+      console.error('[SupabaseDebtRepository.create]', error.code);
+      throw new Error(friendlyDbError(error.message, 'No se pudo crear la deuda.'));
     }
-
-    return mapRow(data);
+    return mapDebt(data);
   }
 
   async update(userId: string, id: string, input: DebtInput): Promise<Debt> {
-    const { data, error } = await this.client
-      .from('debts')
-      .update({
-        creditor_name: input.creditorName,
-        direction: input.direction,
-        principal_amount: input.principalAmount,
-        interest_rate: input.interestRate ?? null,
-        start_date: input.startDate,
-        due_date: input.dueDate ?? null,
-        status: input.status,
-        notes: input.notes ?? null,
-      })
-      .eq('id', id)
-      .eq('user_id', userId)
-      .select('*')
-      .single();
-
+    const { error } = await this.client.from('debts').update(toRow(input)).eq('id', id).eq('user_id', userId);
     if (error) {
-      console.error('[SupabaseDebtRepository.update]', error);
-      throw new Error(`No se pudo actualizar la deuda: ${error.message}`);
+      console.error('[SupabaseDebtRepository.update]', error.code);
+      throw new Error(friendlyDbError(error.message, 'No se pudo actualizar la deuda.'));
     }
+    return this.getOne(userId, id);
+  }
 
-    return mapRow(data, await this.getBalance(id));
+  async confirmBalance(userId: string, id: string, input: DebtBalanceConfirmation): Promise<void> {
+    const { error } = await this.client
+      .from('debts')
+      .update({ balance_confirmed_amount: input.amount, balance_confirmed_at: input.confirmedAt })
+      .eq('id', id)
+      .eq('user_id', userId);
+    if (error) {
+      console.error('[SupabaseDebtRepository.confirmBalance]', error.code);
+      throw new Error(friendlyDbError(error.message, 'No se pudo confirmar el saldo.'));
+    }
   }
 
   async delete(userId: string, id: string): Promise<void> {
     const { error } = await this.client.from('debts').delete().eq('id', id).eq('user_id', userId);
-
     if (error) {
-      console.error('[SupabaseDebtRepository.delete]', error);
-      throw new Error(`No se pudo eliminar la deuda: ${error.message}`);
+      console.error('[SupabaseDebtRepository.delete]', error.code);
+      throw new Error('No se pudo eliminar la deuda.');
     }
   }
 
-  async addPayment(userId: string, debtId: string, input: DebtPaymentInput): Promise<Debt> {
-    const { error: paymentError } = await this.client.from('debt_payments').insert({
-      debt_id: debtId,
-      amount: input.amount,
-      payment_date: input.paymentDate,
-      notes: input.notes ?? null,
+  /** Atómico e idempotente vía record_debt_payment (ver 0014). */
+  async addPayment(_userId: string, debtId: string, input: DebtPaymentInput): Promise<void> {
+    const { error } = await this.client.rpc('record_debt_payment', {
+      p_debt_id: debtId,
+      p_amount: input.amount,
+      p_payment_date: input.paymentDate,
+      p_interest_amount: input.interestAmount ?? null,
+      p_fees_amount: input.feesAmount ?? null,
+      p_notes: input.notes ?? null,
+      p_account_id: input.accountId ?? null,
+      p_category_id: input.accountId ? (input.categoryId ?? null) : null,
+      p_idempotency_key: input.idempotencyKey,
     });
-
-    if (paymentError) {
-      console.error('[SupabaseDebtRepository.addPayment]', paymentError);
-      throw new Error(`No se pudo registrar el abono: ${paymentError.message}`);
-    }
-
-    const { data, error } = await this.client.from('debts').select('*').eq('id', debtId).eq('user_id', userId).single();
-
     if (error) {
-      console.error('[SupabaseDebtRepository.addPayment refetch]', error);
-      throw new Error(`El abono se registró, pero no se pudo recargar la deuda: ${error.message}`);
+      console.error('[SupabaseDebtRepository.addPayment]', error.code);
+      throw new Error(friendlyDbError(error.message, 'No se pudo registrar el pago.'));
     }
-
-    return mapRow(data, await this.getBalance(debtId));
   }
 }

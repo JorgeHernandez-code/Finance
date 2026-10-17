@@ -4,11 +4,13 @@ import type {
   ITransactionRepository,
   TransactionFilters,
   TransactionInput,
+  TransferInput,
 } from '@/domain/repositories/ITransactionRepository';
 import type { Transaction, TransactionListResult } from '@/domain/entities/Transaction';
+import { friendlyDbError } from '../mappers';
 
 const SELECT_WITH_JOINS =
-  'id, account_id, category_id, client_id, type, amount, currency, description, notes, transaction_date, created_at, accounts:account_id(name), categories:category_id(name, color), clients:client_id(name)';
+  'id, account_id, category_id, client_id, type, transfer_direction, transfer_pair_id, amount, currency, description, notes, transaction_date, created_at, accounts:account_id(name), categories:category_id(name, color), clients:client_id(name)';
 
 interface RawTransactionRow {
   id: string;
@@ -16,6 +18,8 @@ interface RawTransactionRow {
   category_id: string | null;
   client_id: string | null;
   type: 'income' | 'expense' | 'transfer';
+  transfer_direction: 'in' | 'out' | null;
+  transfer_pair_id: string | null;
   amount: number;
   currency: string;
   description: string;
@@ -37,10 +41,12 @@ function mapRow(row: RawTransactionRow): Transaction {
     categoryColor: row.categories?.color ?? null,
     clientId: row.client_id,
     clientName: row.clients?.name ?? null,
-    // 'transfer' no se crea desde el formulario todavía (ver Transaction.ts);
-    // esta salvaguarda solo cubre filas antiguas o creadas fuera de la app.
-    type: row.type === 'transfer' ? 'expense' : row.type,
-    amount: row.amount,
+    // Las piernas de una transferencia se muestran como entrada/salida, con
+    // isTransfer = true para que la UI no las trate como ingreso o gasto.
+    type: row.type === 'transfer' ? (row.transfer_direction === 'in' ? 'income' : 'expense') : row.type,
+    isTransfer: row.type === 'transfer',
+    transferPairId: row.transfer_pair_id,
+    amount: Number(row.amount),
     currency: row.currency,
     description: row.description,
     notes: row.notes,
@@ -119,13 +125,24 @@ export class SupabaseTransactionRepository implements ITransactionRepository {
         description: input.description,
         notes: input.notes ?? null,
         transaction_date: input.transactionDate,
+        idempotency_key: input.idempotencyKey ?? null,
       })
       .select(SELECT_WITH_JOINS)
       .single();
 
+    if (error && input.idempotencyKey && /duplicate key|unique/i.test(error.message)) {
+      // Mismo envío recibido dos veces: devolver el movimiento ya creado.
+      const { data: existing } = await this.client
+        .from('transactions')
+        .select(SELECT_WITH_JOINS)
+        .eq('user_id', userId)
+        .eq('idempotency_key', input.idempotencyKey)
+        .single();
+      if (existing) return mapRow(existing as unknown as RawTransactionRow);
+    }
     if (error) {
-      console.error('[SupabaseTransactionRepository.create]', error);
-      throw new Error(`No se pudo crear la transacción: ${error.message}`);
+      console.error('[SupabaseTransactionRepository.create]', error.code);
+      throw new Error('No se pudo crear la transacción.');
     }
 
     return mapRow(data as unknown as RawTransactionRow);
@@ -149,6 +166,8 @@ export class SupabaseTransactionRepository implements ITransactionRepository {
       })
       .eq('id', id)
       .eq('user_id', userId)
+      // Las transferencias no se editan como ingreso/gasto (se eliminan y se registran de nuevo).
+      .neq('type', 'transfer')
       .select(SELECT_WITH_JOINS)
       .single();
 
@@ -160,11 +179,36 @@ export class SupabaseTransactionRepository implements ITransactionRepository {
     return mapRow(data as unknown as RawTransactionRow);
   }
 
+  async createTransfer(input: TransferInput): Promise<void> {
+    const { error } = await this.client.rpc('create_transfer', {
+      p_from_account: input.fromAccountId,
+      p_to_account: input.toAccountId,
+      p_amount_out: input.amountOut,
+      p_amount_in: input.amountIn,
+      p_date: input.transactionDate,
+      p_description: input.description,
+      p_notes: input.notes ?? null,
+      p_idempotency_key: input.idempotencyKey,
+    });
+    if (error) {
+      console.error('[SupabaseTransactionRepository.createTransfer]', error.code);
+      throw new Error(friendlyDbError(error.message, 'No se pudo registrar la transferencia.'));
+    }
+  }
+
+  /** Borrar una pierna de una transferencia borra (lógicamente) las dos: nunca queda media transferencia. */
   async softDelete(userId: string, id: string): Promise<void> {
+    const { data: row } = await this.client
+      .from('transactions')
+      .select('transfer_pair_id')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .maybeSingle();
+    const ids = [id, ...(row?.transfer_pair_id ? [row.transfer_pair_id] : [])];
     const { error } = await this.client
       .from('transactions')
       .update({ deleted_at: new Date().toISOString() })
-      .eq('id', id)
+      .in('id', ids)
       .eq('user_id', userId);
 
     if (error) {

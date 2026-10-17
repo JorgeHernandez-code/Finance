@@ -1,15 +1,18 @@
-export type SavingsGoalStatus = 'active' | 'completed' | 'archived';
+import type { GoalStatusValue, SnapshotGoal } from '@/domain/finance/snapshot';
 
-export interface SavingsGoal {
-  id: string;
-  name: string;
-  targetAmount: number;
-  targetDate: string | null;
+export type SavingsGoalStatus = GoalStatusValue;
+
+/** Meta de ahorro con su progreso (v_savings_progress). */
+export interface SavingsGoal extends SnapshotGoal {
   icon: string;
   color: string;
-  status: SavingsGoalStatus;
-  /** De v_savings_progress. */
-  currentAmount: number;
   progressPercent: number;
-  createdAt: string;
 }
+
+export const GOAL_STATUS_LABEL: Record<SavingsGoalStatus, string> = {
+  active: 'Activa',
+  paused: 'En pausa',
+  completed: 'Completada',
+  cancelled: 'Cancelada',
+  archived: 'Archivada',
+};

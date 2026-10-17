@@ -1,10 +1,6 @@
 import { z } from 'zod';
 
-/**
- * 'transfer' se deja fuera del formulario a propósito por ahora — ver la nota
- * en src/domain/entities/Transaction.ts sobre por qué su contabilidad de
- * doble entrada no está lista todavía.
- */
+/** Las transferencias tienen su propio esquema (transferInputSchema, más abajo). */
 export const transactionTypeSchema = z.enum(['income', 'expense']);
 
 export const transactionInputSchema = z.object({
@@ -19,8 +15,26 @@ export const transactionInputSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida')
     .refine((value) => !Number.isNaN(new Date(value).getTime()), 'Fecha inválida'),
+  idempotencyKey: z.string().uuid().nullable().optional(),
 });
 export type TransactionInputDto = z.infer<typeof transactionInputSchema>;
+
+export const transferInputSchema = z
+  .object({
+    fromAccountId: z.string().uuid('Selecciona la cuenta de origen'),
+    toAccountId: z.string().uuid('Selecciona la cuenta de destino'),
+    amountOut: z.coerce.number().positive('El monto debe ser mayor a 0'),
+    amountIn: z.coerce.number().positive('El monto recibido debe ser mayor a 0'),
+    description: z.string().trim().min(1, 'Escribe una descripción').max(200),
+    notes: z.string().trim().max(1000).nullable().optional(),
+    transactionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida'),
+    idempotencyKey: z.string().uuid(),
+  })
+  .refine((v) => v.fromAccountId !== v.toAccountId, {
+    message: 'Elige dos cuentas distintas',
+    path: ['toAccountId'],
+  });
+export type TransferInputDto = z.infer<typeof transferInputSchema>;
 
 export const createTransactionSchema = transactionInputSchema;
 export type CreateTransactionInput = z.infer<typeof createTransactionSchema>;

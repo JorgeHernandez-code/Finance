@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ArrowLeftRight, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useTransactions } from '@/presentation/hooks/useTransactions';
 import { DEFAULT_TRANSACTION_FILTERS, type TransactionFiltersDto } from '@/application/dto/transaction';
 import type { Transaction, TransactionListResult } from '@/domain/entities/Transaction';
@@ -12,19 +12,34 @@ import { TransactionFilters } from './TransactionFilters';
 import { TransactionsTable } from './TransactionsTable';
 import { TransactionFormSheet } from './TransactionFormSheet';
 import { DeleteTransactionDialog } from './DeleteTransactionDialog';
+import { TransferDialog } from './TransferDialog';
 
 interface TransactionsViewProps {
   userId: string;
   initialData: TransactionListResult;
   options: TransactionFormOptions;
+  /** Acceso rápido desde el dashboard (?nuevo=…). */
+  initialAction?: 'income' | 'expense' | 'transfer';
 }
 
-export function TransactionsView({ userId, initialData, options }: TransactionsViewProps) {
+export function TransactionsView({ userId, initialData, options, initialAction }: TransactionsViewProps) {
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState<TransactionFiltersDto>(DEFAULT_TRANSACTION_FILTERS);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [deleting, setDeleting] = useState<Transaction | null>(null);
+  const [transferOpen, setTransferOpen] = useState(initialAction === 'transfer');
+  const [defaultType, setDefaultType] = useState<'income' | 'expense'>(
+    initialAction === 'income' ? 'income' : 'expense'
+  );
+
+  useEffect(() => {
+    if (initialAction === 'income' || initialAction === 'expense') {
+      setDefaultType(initialAction);
+      setEditing(null);
+      setSheetOpen(true);
+    }
+  }, [initialAction]);
 
   const { data, isFetching } = useTransactions(userId, filters, initialData);
   const totalPages = Math.max(1, Math.ceil(data.total / data.pageSize));
@@ -39,6 +54,7 @@ export function TransactionsView({ userId, initialData, options }: TransactionsV
   }
 
   function openCreate() {
+    setDefaultType('expense');
     setEditing(null);
     setSheetOpen(true);
   }
@@ -53,12 +69,30 @@ export function TransactionsView({ userId, initialData, options }: TransactionsV
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Transacciones</h1>
-          <p className="text-sm text-muted-foreground">Todos tus ingresos y gastos en un solo lugar.</p>
+          <p className="text-sm text-muted-foreground">
+            Todos tus ingresos, gastos y movimientos entre cuentas.
+          </p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="size-4" /> Nueva transacción
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setTransferOpen(true)}
+            disabled={options.accounts.length < 2}
+          >
+            <ArrowLeftRight className="size-4" /> Entre cuentas
+          </Button>
+          <Button onClick={openCreate}>
+            <Plus className="size-4" /> Nueva transacción
+          </Button>
+        </div>
       </div>
+
+      <TransferDialog
+        open={transferOpen}
+        onOpenChange={setTransferOpen}
+        accounts={options.accounts}
+        onSaved={invalidate}
+      />
 
       <TransactionFilters
         filters={filters}
@@ -68,7 +102,12 @@ export function TransactionsView({ userId, initialData, options }: TransactionsV
         categories={options.categories}
       />
 
-      <TransactionsTable transactions={data.items} isLoading={isFetching} onEdit={openEdit} onDelete={setDeleting} />
+      <TransactionsTable
+        transactions={data.items}
+        isLoading={isFetching}
+        onEdit={openEdit}
+        onDelete={setDeleting}
+      />
 
       {data.total > 0 && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">
@@ -101,6 +140,7 @@ export function TransactionsView({ userId, initialData, options }: TransactionsV
         onOpenChange={setSheetOpen}
         options={options}
         editing={editing}
+        defaultType={defaultType}
         onSaved={() => {
           setSheetOpen(false);
           invalidate();

@@ -25,11 +25,27 @@ export interface TransactionInput {
   description: string;
   notes?: string | null;
   transactionDate: string;
+  /** Generada por el formulario al abrirse: un doble envío no duplica el movimiento. */
+  idempotencyKey?: string | null;
+}
+
+export interface TransferInput {
+  fromAccountId: string;
+  toAccountId: string;
+  /** Monto que sale (moneda de la cuenta origen). */
+  amountOut: number;
+  /** Monto que entra (moneda de la cuenta destino); igual a amountOut si es la misma moneda. */
+  amountIn: number;
+  description: string;
+  notes?: string | null;
+  transactionDate: string;
+  idempotencyKey: string;
 }
 
 export interface ITransactionRepository {
   list(userId: string, filters: TransactionFilters): Promise<TransactionListResult>;
   create(userId: string, input: TransactionInput): Promise<Transaction>;
+  createTransfer(input: TransferInput): Promise<void>;
   update(userId: string, id: string, input: TransactionInput): Promise<Transaction>;
   softDelete(userId: string, id: string): Promise<void>;
 }
