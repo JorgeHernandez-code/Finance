@@ -21,6 +21,7 @@ export const DEBT_KIND_LABEL: Record<DebtKind, string> = {
   tax: 'Obligación tributaria',
   fine: 'Multa',
   utility: 'Servicio pendiente',
+  state_loan: 'Préstamo estatal',
   other: 'Otra / sin clasificar',
 };
 
@@ -30,6 +31,12 @@ export const DEBT_STATUS_LABEL: Record<DebtStatus, string> = {
   overdue: 'Vencida',
   negotiating: 'En negociación',
   agreement: 'Con acuerdo de pago',
+};
+
+export const RESPONSIBILITY_LABEL: Record<Debt['responsibility'], string> = {
+  own: 'Propia',
+  shared: 'Compartida',
+  third_party: 'A nombre de un tercero',
 };
 
 export const COUNTRY_LABEL: Record<string, string> = { CO: 'Colombia', CL: 'Chile' };

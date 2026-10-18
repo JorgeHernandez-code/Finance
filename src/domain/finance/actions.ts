@@ -171,7 +171,7 @@ export function upcomingReminders(
       });
   }
   for (const r of s.recurring.filter((x) => x.status === 'active')) {
-    if (isBetween(r.nextBillingDate, today, until))
+    if (r.nextBillingDate && isBetween(r.nextBillingDate, today, until))
       reminders.push({
         key: `sub-${r.id}`,
         date: r.nextBillingDate,

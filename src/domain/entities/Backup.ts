@@ -36,8 +36,8 @@ export interface BackupSubscription {
   accountId: string | null;
   amount: number;
   currency: string;
-  billingCycle: string;
-  nextBillingDate: string;
+  billingCycle: string | null;
+  nextBillingDate: string | null;
   status: string;
   icon: string;
   color: string;
@@ -57,7 +57,7 @@ export interface BackupDebt {
   id: string;
   creditorName: string;
   direction: string;
-  principalAmount: number;
+  principalAmount: number | null;
   interestRate: number | null;
   startDate: string;
   dueDate: string | null;
@@ -75,7 +75,7 @@ export interface BackupDebtPayment {
 export interface BackupSavingsGoal {
   id: string;
   name: string;
-  targetAmount: number;
+  targetAmount: number | null;
   targetDate: string | null;
   icon: string;
   color: string;

@@ -8,6 +8,7 @@ import {
   subscriptionInputSchema,
   NO_CATEGORY,
   NO_ACCOUNT,
+  NO_CYCLE,
   type SubscriptionInputDto,
 } from '@/application/dto/subscription';
 import { createSubscriptionAction, updateSubscriptionAction } from '@/app/(dashboard)/subscriptions/actions';
@@ -36,12 +37,14 @@ import {
 import { ColorPicker } from '@/presentation/components/modules/shared/ColorPicker';
 import { IconPicker } from '@/presentation/components/modules/shared/IconPicker';
 
-const CYCLE_LABELS: Record<SubscriptionInputDto['billingCycle'], string> = {
+const CYCLE_LABELS: Record<NonNullable<SubscriptionInputDto['billingCycle']> | typeof NO_CYCLE, string> = {
   weekly: 'Semanal',
   biweekly: 'Quincenal',
   monthly: 'Mensual',
+  bimonthly: 'Cada dos meses',
   quarterly: 'Trimestral',
   yearly: 'Anual',
+  [NO_CYCLE]: 'Pendiente de confirmar',
 };
 
 interface SubscriptionFormDialogProps {
@@ -67,6 +70,9 @@ function toFormValues(editing: Subscription | null): SubscriptionInputDto {
       currency: 'COP',
       billingCycle: 'monthly',
       nextBillingDate: todayIso(),
+      amountIsEstimate: false,
+      cycleConfirmed: true,
+      notes: null,
       icon: 'refresh',
       color: '#f59e0b',
     };
@@ -82,6 +88,9 @@ function toFormValues(editing: Subscription | null): SubscriptionInputDto {
     currency: editing.currency,
     billingCycle: editing.billingCycle,
     nextBillingDate: editing.nextBillingDate,
+    amountIsEstimate: editing.amountIsEstimate,
+    cycleConfirmed: editing.cycleConfirmed,
+    notes: editing.notes,
     icon: editing.icon,
     color: editing.color,
   };
@@ -212,7 +221,7 @@ export function SubscriptionFormDialog({
                 control={form.control}
                 name="billingCycle"
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select value={field.value ?? NO_CYCLE} onValueChange={field.onChange}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -230,7 +239,33 @@ export function SubscriptionFormDialog({
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="nextBillingDate">Próximo cobro</Label>
               <Input id="nextBillingDate" type="date" {...form.register('nextBillingDate')} />
+              <p className="text-xs text-muted-foreground">Vacío si no conoces el día.</p>
             </div>
+          </div>
+
+          <div className="flex flex-col gap-2 text-sm">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="size-4 accent-primary"
+                {...form.register('amountIsEstimate')}
+              />
+              El importe es aproximado
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="size-4 accent-primary"
+                checked={!form.watch('cycleConfirmed')}
+                onChange={(e) => form.setValue('cycleConfirmed', !e.target.checked)}
+              />
+              La frecuencia está pendiente de confirmar
+            </label>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="sub-notes">Notas (opcional)</Label>
+            <Input id="sub-notes" maxLength={1000} {...form.register('notes')} />
           </div>
 
           <div className="flex flex-col gap-1.5">

@@ -53,6 +53,10 @@ interface FormState {
   priority: 'high' | 'medium' | 'low' | null;
   negotiable: 'yes' | 'no' | 'unknown';
   notes: string;
+  amountIsEstimate: boolean;
+  responsibility: 'own' | 'shared' | 'third_party';
+  legalHolder: string;
+  nextInstallmentNumber: string;
 }
 
 const str = (n: number | null | undefined) => (n === null || n === undefined ? '' : String(n));
@@ -77,6 +81,10 @@ function toFormState(editing: Debt | null, defaultCurrency: string): FormState {
       priority: null,
       negotiable: 'unknown',
       notes: '',
+      amountIsEstimate: false,
+      responsibility: 'own',
+      legalHolder: '',
+      nextInstallmentNumber: '',
     };
   }
   return {
@@ -97,6 +105,10 @@ function toFormState(editing: Debt | null, defaultCurrency: string): FormState {
     priority: editing.priority,
     negotiable: editing.negotiable,
     notes: editing.notes ?? '',
+    amountIsEstimate: editing.amountIsEstimate,
+    responsibility: editing.responsibility,
+    legalHolder: editing.legalHolder ?? '',
+    nextInstallmentNumber: str(editing.nextInstallmentNumber),
   };
 }
 
@@ -135,7 +147,11 @@ export function DebtFormDialog({
       kind: form.kind,
       currency: form.currency,
       country: form.country,
-      principalAmount: Number(form.principalAmount),
+      principalAmount: optional(form.principalAmount),
+      amountIsEstimate: form.amountIsEstimate,
+      responsibility: form.responsibility,
+      legalHolder: form.legalHolder || null,
+      nextInstallmentNumber: optional(form.nextInstallmentNumber),
       interestRate: optional(form.interestRate),
       interestRatePeriod: form.interestRatePeriod,
       startDate: form.startDate,
@@ -208,14 +224,17 @@ export function DebtFormDialog({
           </Field>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Monto original" htmlFor="principalAmount">
+            <Field
+              label="Monto original o saldo"
+              htmlFor="principalAmount"
+              hint="Vacío si solo conoces la cuota"
+            >
               <Input
                 id="principalAmount"
                 type="number"
                 inputMode="decimal"
                 step="0.01"
                 min="0.01"
-                required
                 value={form.principalAmount}
                 onChange={(e) => set('principalAmount', e.target.value)}
               />
@@ -249,6 +268,16 @@ export function DebtFormDialog({
             />
           </div>
 
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="size-4 accent-primary"
+              checked={form.amountIsEstimate}
+              onChange={(e) => set('amountIsEstimate', e.target.checked)}
+            />
+            El importe es aproximado
+          </label>
+
           <button
             type="button"
             onClick={() => setShowDetails((s) => !s)}
@@ -281,6 +310,16 @@ export function DebtFormDialog({
                     min="1"
                     value={form.installmentsTotal}
                     onChange={(e) => set('installmentsTotal', e.target.value)}
+                  />
+                </Field>
+                <Field label="Próxima cuota n.º" htmlFor="nextInstallmentNumber" hint="Según lo informado">
+                  <Input
+                    id="nextInstallmentNumber"
+                    type="number"
+                    step="1"
+                    min="1"
+                    value={form.nextInstallmentNumber}
+                    onChange={(e) => set('nextInstallmentNumber', e.target.value)}
                   />
                 </Field>
               </div>
@@ -365,6 +404,27 @@ export function DebtFormDialog({
                     { value: 'no', label: 'No' },
                   ]}
                 />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <SelectField
+                  label="Responsabilidad"
+                  value={form.responsibility}
+                  onChange={(v) => set('responsibility', (v as FormState['responsibility']) ?? 'own')}
+                  options={[
+                    { value: 'own', label: 'Propia' },
+                    { value: 'shared', label: 'Compartida' },
+                    { value: 'third_party', label: 'A nombre de un tercero' },
+                  ]}
+                />
+                <Field label="Titular legal (si no eres tú)" htmlFor="legalHolder">
+                  <Input
+                    id="legalHolder"
+                    maxLength={120}
+                    value={form.legalHolder}
+                    onChange={(e) => set('legalHolder', e.target.value)}
+                  />
+                </Field>
               </div>
 
               <Field

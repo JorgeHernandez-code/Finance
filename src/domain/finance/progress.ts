@@ -383,7 +383,9 @@ const ACHIEVEMENTS: {
     xp: 60,
     test: (s) =>
       s.goals.some(
-        (g) => g.status === 'completed' || (g.currentAmount >= g.targetAmount && g.targetAmount > 0)
+        (g) =>
+          g.status === 'completed' ||
+          (g.targetAmount !== null && g.targetAmount > 0 && g.currentAmount >= g.targetAmount)
       ),
   },
   {

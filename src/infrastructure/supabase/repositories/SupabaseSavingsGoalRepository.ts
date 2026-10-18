@@ -51,6 +51,7 @@ export class SupabaseSavingsGoalRepository implements ISavingsGoalRepository {
         icon: row.icon,
         color: row.color,
         progressPercent: num(progress?.progress_percent),
+        notes: row.notes ?? null,
       };
     });
   }

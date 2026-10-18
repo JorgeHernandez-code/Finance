@@ -28,7 +28,10 @@ export function buildLessonContext(s: FinancialSnapshot): LessonContext {
     essentialRecurringCount: s.recurring.filter((r) => r.status === 'active' && r.isEssential).length,
     subscriptionsCount: subs.length,
     subscriptionsMonthly: sumMoney(
-      subs.filter((r) => r.currency === s.defaultCurrency).map(monthlyEquivalent)
+      subs
+        .filter((r) => r.currency === s.defaultCurrency)
+        .map(monthlyEquivalent)
+        .filter((v): v is number => v !== null)
     ),
     capacityStatus: capacity.status,
     hasEmergencyFund: !!emergency,

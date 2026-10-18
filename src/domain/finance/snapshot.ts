@@ -19,11 +19,12 @@ export type DebtKind =
   | 'tax'
   | 'fine'
   | 'utility'
+  | 'state_loan'
   | 'other';
 
 export type DebtStatusValue = 'active' | 'paid' | 'overdue' | 'negotiating' | 'agreement';
 export type GoalStatusValue = 'active' | 'completed' | 'archived' | 'paused' | 'cancelled';
-export type BillingCycle = 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly';
+export type BillingCycle = 'weekly' | 'biweekly' | 'monthly' | 'bimonthly' | 'quarterly' | 'yearly';
 export type RecurringKind =
   | 'subscription'
   | 'rent'
@@ -63,8 +64,17 @@ export interface SnapshotDebt {
   kind: DebtKind;
   currency: string;
   country: string | null;
-  principalAmount: number;
-  remainingBalance: number;
+  /** null = desconocido (solo se sabe la cuota). */
+  principalAmount: number | null;
+  /** null = saldo desconocido: no se suma a ningún total y se marca como pendiente. */
+  remainingBalance: number | null;
+  /** Importe aproximado informado por el usuario. */
+  amountIsEstimate: boolean;
+  /** own = propia; shared = compartida; third_party = a nombre de un tercero que el usuario asume. */
+  responsibility: 'own' | 'shared' | 'third_party';
+  legalHolder: string | null;
+  /** Número de la próxima cuota según lo informado. */
+  nextInstallmentNumber: number | null;
   totalPaid: number;
   totalInterestAndFees: number;
   interestRate: number | null;
@@ -99,7 +109,8 @@ export interface SnapshotDebtPayment {
 export interface SnapshotGoal {
   id: string;
   name: string;
-  targetAmount: number;
+  /** null = pendiente de cotización. */
+  targetAmount: number | null;
   currency: string;
   targetDate: IsoDate | null;
   status: GoalStatusValue;
@@ -126,8 +137,13 @@ export interface SnapshotRecurring {
   kind: RecurringKind;
   amount: number;
   currency: string;
-  billingCycle: BillingCycle;
-  nextBillingDate: IsoDate;
+  /** null = frecuencia desconocida. */
+  billingCycle: BillingCycle | null;
+  /** null = fecha de cobro desconocida. */
+  nextBillingDate: IsoDate | null;
+  amountIsEstimate: boolean;
+  /** false = frecuencia informada pero pendiente de confirmar. */
+  cycleConfirmed: boolean;
   status: 'active' | 'paused' | 'cancelled';
   isEssential: boolean;
   debtId: string | null;

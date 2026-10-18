@@ -52,6 +52,8 @@ export interface Database {
           color: string;
           icon: string;
           is_archived: boolean;
+          notes: string | null;
+          import_ref: string | null;
           country: string | null;
           created_at: string;
           updated_at: string;
@@ -68,6 +70,8 @@ export interface Database {
           color?: string;
           icon?: string;
           is_archived?: boolean;
+          notes?: string | null;
+          import_ref?: string | null;
           country?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -113,6 +117,7 @@ export interface Database {
           icon: string;
           status: 'active' | 'inactive';
           notes: string | null;
+          import_ref: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -124,6 +129,7 @@ export interface Database {
           icon?: string;
           status?: 'active' | 'inactive';
           notes?: string | null;
+          import_ref?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -239,7 +245,7 @@ export interface Database {
           user_id: string;
           creditor_name: string;
           direction: 'i_owe' | 'owed_to_me';
-          principal_amount: number;
+          principal_amount: number | null;
           interest_rate: number | null;
           start_date: string;
           due_date: string | null;
@@ -256,6 +262,11 @@ export interface Database {
           balance_confirmed_amount: number | null;
           balance_confirmed_at: string | null;
           interest_rate_period: 'monthly' | 'annual' | null;
+          amount_is_estimate: boolean;
+          legal_holder: string | null;
+          responsibility: 'own' | 'shared' | 'third_party';
+          next_installment_number: number | null;
+          import_ref: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -264,7 +275,7 @@ export interface Database {
           user_id: string;
           creditor_name: string;
           direction: 'i_owe' | 'owed_to_me';
-          principal_amount: number;
+          principal_amount?: number | null;
           interest_rate?: number | null;
           start_date?: string;
           due_date?: string | null;
@@ -281,6 +292,11 @@ export interface Database {
           balance_confirmed_amount?: number | null;
           balance_confirmed_at?: string | null;
           interest_rate_period?: 'monthly' | 'annual' | null;
+          amount_is_estimate?: boolean;
+          legal_holder?: string | null;
+          responsibility?: 'own' | 'shared' | 'third_party';
+          next_installment_number?: number | null;
+          import_ref?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -318,7 +334,7 @@ export interface Database {
           id: string;
           user_id: string;
           name: string;
-          target_amount: number;
+          target_amount: number | null;
           target_date: string | null;
           icon: string;
           color: string;
@@ -328,6 +344,9 @@ export interface Database {
           priority: number;
           planned_monthly_contribution: number | null;
           is_emergency_fund: boolean;
+          category_id: string | null;
+          notes: string | null;
+          import_ref: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -335,7 +354,7 @@ export interface Database {
           id?: string;
           user_id: string;
           name: string;
-          target_amount: number;
+          target_amount?: number | null;
           target_date?: string | null;
           icon?: string;
           color?: string;
@@ -345,6 +364,9 @@ export interface Database {
           priority?: number;
           planned_monthly_contribution?: number | null;
           is_emergency_fund?: boolean;
+          category_id?: string | null;
+          notes?: string | null;
+          import_ref?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -420,8 +442,8 @@ export interface Database {
           account_id: string | null;
           amount: number;
           currency: string;
-          billing_cycle: BillingCycleDb;
-          next_billing_date: string;
+          billing_cycle: BillingCycleDb | null;
+          next_billing_date: string | null;
           status: 'active' | 'paused' | 'cancelled';
           icon: string;
           color: string;
@@ -429,6 +451,10 @@ export interface Database {
           is_essential: boolean;
           debt_id: string | null;
           last_reviewed_at: string | null;
+          amount_is_estimate: boolean;
+          cycle_confirmed: boolean;
+          notes: string | null;
+          import_ref: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -440,8 +466,8 @@ export interface Database {
           account_id?: string | null;
           amount: number;
           currency?: string;
-          billing_cycle: BillingCycleDb;
-          next_billing_date: string;
+          billing_cycle?: BillingCycleDb | null;
+          next_billing_date?: string | null;
           status?: 'active' | 'paused' | 'cancelled';
           icon?: string;
           color?: string;
@@ -449,6 +475,10 @@ export interface Database {
           is_essential?: boolean;
           debt_id?: string | null;
           last_reviewed_at?: string | null;
+          amount_is_estimate?: boolean;
+          cycle_confirmed?: boolean;
+          notes?: string | null;
+          import_ref?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -684,7 +714,7 @@ export interface Database {
           user_id: string;
           creditor_name: string;
           direction: 'i_owe' | 'owed_to_me';
-          principal_amount: number;
+          principal_amount: number | null;
           status: DebtStatusDb;
           due_date: string | null;
           total_paid: number;
@@ -702,7 +732,7 @@ export interface Database {
           goal_id: string;
           user_id: string;
           name: string;
-          target_amount: number;
+          target_amount: number | null;
           target_date: string | null;
           status: GoalStatusDb;
           current_amount: number;
@@ -798,9 +828,10 @@ export type DebtKindDb =
   | 'tax'
   | 'fine'
   | 'utility'
+  | 'state_loan'
   | 'other';
 export type GoalStatusDb = 'active' | 'completed' | 'archived' | 'paused' | 'cancelled';
-export type BillingCycleDb = 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly';
+export type BillingCycleDb = 'weekly' | 'biweekly' | 'monthly' | 'bimonthly' | 'quarterly' | 'yearly';
 export type RecurringKindDb =
   | 'subscription'
   | 'rent'

@@ -7,10 +7,12 @@ export interface Account {
   institution: string | null;
   currency: string;
   initialBalance: number;
-  /** initial_balance + suma de ingresos/gastos (v_account_balances) — no incluye transferencias todavía, ver Transaction.ts. */
+  /** initial_balance + ingresos − gastos ± transferencias (v_account_balances). */
   currentBalance: number;
   color: string;
   icon: string;
   isArchived: boolean;
+  /** Notas (p. ej. efectivo pendiente de contar, que NO se suma al saldo). */
+  notes?: string | null;
   createdAt: string;
 }

@@ -12,7 +12,7 @@ import type {
 } from '@/domain/entities/Subscription';
 
 const SELECT_WITH_JOINS =
-  'id, name, kind, is_essential, debt_id, last_reviewed_at, category_id, account_id, amount, currency, billing_cycle, next_billing_date, status, icon, color, created_at, categories:category_id(name), accounts:account_id(name)';
+  'id, name, kind, is_essential, debt_id, last_reviewed_at, amount_is_estimate, cycle_confirmed, notes, category_id, account_id, amount, currency, billing_cycle, next_billing_date, status, icon, color, created_at, categories:category_id(name), accounts:account_id(name)';
 
 interface RawSubscriptionRow {
   id: string;
@@ -21,12 +21,15 @@ interface RawSubscriptionRow {
   account_id: string | null;
   amount: number;
   currency: string;
-  billing_cycle: BillingCycle;
+  billing_cycle: BillingCycle | null;
+  amount_is_estimate: boolean;
+  cycle_confirmed: boolean;
+  notes: string | null;
   kind: RecurringKind;
   is_essential: boolean;
   debt_id: string | null;
   last_reviewed_at: string | null;
-  next_billing_date: string;
+  next_billing_date: string | null;
   status: SubscriptionStatus;
   icon: string;
   color: string;
@@ -51,6 +54,9 @@ function mapRow(row: RawSubscriptionRow): Subscription {
     currency: row.currency,
     billingCycle: row.billing_cycle,
     nextBillingDate: row.next_billing_date,
+    amountIsEstimate: row.amount_is_estimate ?? false,
+    cycleConfirmed: row.cycle_confirmed ?? true,
+    notes: row.notes ?? null,
     status: row.status,
     icon: row.icon,
     color: row.color,
@@ -91,7 +97,10 @@ export class SupabaseSubscriptionRepository implements ISubscriptionRepository {
         amount: input.amount,
         currency: input.currency,
         billing_cycle: input.billingCycle,
-        next_billing_date: input.nextBillingDate,
+        next_billing_date: input.nextBillingDate ?? null,
+        amount_is_estimate: input.amountIsEstimate,
+        cycle_confirmed: input.cycleConfirmed,
+        notes: input.notes ?? null,
         icon: input.icon,
         color: input.color,
       })
@@ -119,7 +128,10 @@ export class SupabaseSubscriptionRepository implements ISubscriptionRepository {
         amount: input.amount,
         currency: input.currency,
         billing_cycle: input.billingCycle,
-        next_billing_date: input.nextBillingDate,
+        next_billing_date: input.nextBillingDate ?? null,
+        amount_is_estimate: input.amountIsEstimate,
+        cycle_confirmed: input.cycleConfirmed,
+        notes: input.notes ?? null,
         icon: input.icon,
         color: input.color,
       })

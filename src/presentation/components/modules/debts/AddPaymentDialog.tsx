@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { addDebtPaymentAction } from '@/app/(dashboard)/debts/actions';
 import type { Debt } from '@/domain/entities/Debt';
-import { formatMoney } from '@/shared/lib/format';
+import { formatMaybeMoney, formatMoney } from '@/shared/lib/format';
 import { todayIso } from '@/shared/lib/dates';
 import {
   Dialog,
@@ -107,7 +107,9 @@ export function AddPaymentDialog({
                 Saldo pendiente {debt.balanceConfirmedAt ? '' : 'estimado '}de &ldquo;{debt.creditorName}
                 &rdquo;:{' '}
                 <span className="font-medium text-foreground">
-                  {formatMoney(debt.remainingBalance, debt.currency)}
+                  {formatMaybeMoney(debt.remainingBalance, debt.currency, 'por confirmar', {
+                    approximate: debt.amountIsEstimate,
+                  })}
                 </span>
               </>
             )}

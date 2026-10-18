@@ -20,8 +20,9 @@ export function resolveCountry(country: string | null, currency: string): Resolv
   return fromCurrency ? { country: fromCurrency, inferred: true } : { country: null, inferred: false };
 }
 
+/** Abierta = no pagada y con saldo pendiente (o con saldo DESCONOCIDO: no se da por pagada). */
 export function isOpenDebt(debt: SnapshotDebt): boolean {
-  return debt.status !== 'paid' && debt.remainingBalance > 0;
+  return debt.status !== 'paid' && (debt.remainingBalance === null || debt.remainingBalance > 0);
 }
 
 /** Próxima fecha ACORDADA (cuota o vencimiento). null = sin fecha acordada. */
@@ -56,9 +57,17 @@ export function isBalanceConfirmed(debt: SnapshotDebt, today: IsoDate): boolean 
 }
 
 export type DebtGap =
-  'balance_unconfirmed' | 'country_unknown' | 'interest_unknown' | 'interest_period_unknown' | 'kind_unknown';
+  | 'balance_unknown'
+  | 'amount_estimate'
+  | 'balance_unconfirmed'
+  | 'country_unknown'
+  | 'interest_unknown'
+  | 'interest_period_unknown'
+  | 'kind_unknown';
 
 export const DEBT_GAP_LABEL: Record<DebtGap, string> = {
+  balance_unknown: 'Saldo total desconocido (solo se conoce la cuota)',
+  amount_estimate: 'Importe aproximado',
   balance_unconfirmed: 'Saldo sin confirmar con el acreedor',
   country_unknown: 'País sin indicar',
   interest_unknown: 'Interés sin indicar',
@@ -68,7 +77,9 @@ export const DEBT_GAP_LABEL: Record<DebtGap, string> = {
 
 export function debtGaps(debt: SnapshotDebt, today: IsoDate): DebtGap[] {
   const gaps: DebtGap[] = [];
-  if (!isBalanceConfirmed(debt, today)) gaps.push('balance_unconfirmed');
+  if (debt.remainingBalance === null) gaps.push('balance_unknown');
+  else if (!isBalanceConfirmed(debt, today)) gaps.push('balance_unconfirmed');
+  if (debt.amountIsEstimate) gaps.push('amount_estimate');
   if (!resolveCountry(debt.country, debt.currency).country) gaps.push('country_unknown');
   if (debt.kind === 'other') gaps.push('kind_unknown');
   if (debt.interestRate === null) gaps.push('interest_unknown');
@@ -92,6 +103,10 @@ export interface DebtSide {
   byCountry: Record<string, CurrencyTotals>;
   totalCop: Consolidated;
   count: number;
+  /** Deudas abiertas cuyo saldo total no se conoce: no están en ningún total. */
+  unknownBalanceCount: number;
+  /** Parte de los totales que corresponde a obligaciones compartidas o a nombre de terceros. */
+  sharedOrThirdPartyByCurrency: CurrencyTotals;
 }
 
 export interface DebtSummary {
@@ -115,8 +130,16 @@ function buildSide(debts: DebtView[], rates: SnapshotRate[], today: IsoDate): De
     byCountry: {},
     totalCop: consolidate({}, 'COP', rates, today),
     count: debts.length,
+    unknownBalanceCount: 0,
+    sharedOrThirdPartyByCurrency: {},
   };
   for (const d of debts) {
+    if (d.remainingBalance === null) {
+      side.unknownBalanceCount += 1;
+      continue;
+    }
+    if (d.responsibility !== 'own')
+      addToTotals(side.sharedOrThirdPartyByCurrency, d.currency, d.remainingBalance);
     addToTotals(side.byCurrency, d.currency, d.remainingBalance);
     addToTotals(
       d.confirmed ? side.confirmedByCurrency : side.estimatedByCurrency,
@@ -221,14 +244,18 @@ export function simulatePayoff(
   if (currencies.size > 1) throw new Error('simulatePayoff requiere deudas de una sola moneda');
 
   const state = debts
-    .filter((d) => d.remainingBalance > 0)
+    .filter((d) => {
+      if (d.remainingBalance === null)
+        warnings.push(`${d.creditorName}: saldo desconocido, no se incluye en la simulación.`);
+      return d.remainingBalance !== null && d.remainingBalance > 0;
+    })
     .map((d) => {
       const rate = monthlyRate(d);
       if (rate === null) warnings.push(`${d.creditorName}: interés desconocido, se simula sin intereses.`);
       return {
         id: d.id,
         name: d.creditorName,
-        balance: d.remainingBalance,
+        balance: d.remainingBalance ?? 0,
         rate: rate ?? 0,
         minimum: d.installmentAmount ?? 0,
       };
@@ -314,7 +341,7 @@ export function suggestDebtOrder(debts: DebtView[]): DebtView[] {
     const ra = monthlyRate(a) ?? -1;
     const rb = monthlyRate(b) ?? -1;
     if (ra !== rb) return rb - ra;
-    return a.remainingBalance - b.remainingBalance;
+    return (a.remainingBalance ?? Number.MAX_SAFE_INTEGER) - (b.remainingBalance ?? Number.MAX_SAFE_INTEGER);
   });
 }
 

@@ -59,6 +59,10 @@ export function debt(p: Partial<SnapshotDebt> = {}): SnapshotDebt {
     paymentsSinceConfirmation: 0,
     lastPaymentDate: null,
     notes: null,
+    amountIsEstimate: false,
+    responsibility: 'own',
+    legalHolder: null,
+    nextInstallmentNumber: null,
     createdAt: '2026-01-01T10:00:00Z',
     ...p,
   };
@@ -116,6 +120,8 @@ export function recurring(p: Partial<SnapshotRecurring> = {}): SnapshotRecurring
     isEssential: false,
     debtId: null,
     lastReviewedAt: null,
+    amountIsEstimate: false,
+    cycleConfirmed: true,
     ...p,
   };
 }

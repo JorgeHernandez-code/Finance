@@ -6,7 +6,11 @@ export interface DebtInput {
   kind: DebtKind;
   currency: string;
   country?: string | null;
-  principalAmount: number;
+  principalAmount?: number | null;
+  amountIsEstimate?: boolean;
+  responsibility?: 'own' | 'shared' | 'third_party';
+  legalHolder?: string | null;
+  nextInstallmentNumber?: number | null;
   interestRate?: number | null;
   interestRatePeriod?: 'monthly' | 'annual' | null;
   startDate: string;

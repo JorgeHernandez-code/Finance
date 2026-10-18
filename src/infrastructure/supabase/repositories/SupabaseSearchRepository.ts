@@ -12,43 +12,59 @@ export class SupabaseSearchRepository implements ISearchRepository {
   async search(userId: string, query: string): Promise<SearchResult[]> {
     const term = `%${query}%`;
 
-    const [transactions, accounts, categories, clients, debts, savingsGoals, investments, subscriptions] = await Promise.all([
-      this.client
-        .from('transactions')
-        .select('id, description, amount, transaction_date')
-        .eq('user_id', userId)
-        .is('deleted_at', null)
-        .ilike('description', term)
-        .order('transaction_date', { ascending: false })
-        .limit(RESULTS_PER_TABLE),
-      this.client.from('accounts').select('id, name, institution').eq('user_id', userId).ilike('name', term).limit(RESULTS_PER_TABLE),
-      this.client.from('categories').select('id, name, type').eq('user_id', userId).ilike('name', term).limit(RESULTS_PER_TABLE),
-      this.client.from('clients').select('id, name, status').eq('user_id', userId).ilike('name', term).limit(RESULTS_PER_TABLE),
-      this.client
-        .from('debts')
-        .select('id, creditor_name, principal_amount')
-        .eq('user_id', userId)
-        .ilike('creditor_name', term)
-        .limit(RESULTS_PER_TABLE),
-      this.client
-        .from('savings_goals')
-        .select('id, name, target_amount')
-        .eq('user_id', userId)
-        .ilike('name', term)
-        .limit(RESULTS_PER_TABLE),
-      this.client
-        .from('investments')
-        .select('id, name, amount_invested')
-        .eq('user_id', userId)
-        .ilike('name', term)
-        .limit(RESULTS_PER_TABLE),
-      this.client
-        .from('subscriptions')
-        .select('id, name, amount')
-        .eq('user_id', userId)
-        .ilike('name', term)
-        .limit(RESULTS_PER_TABLE),
-    ]);
+    const [transactions, accounts, categories, clients, debts, savingsGoals, investments, subscriptions] =
+      await Promise.all([
+        this.client
+          .from('transactions')
+          .select('id, description, amount, transaction_date')
+          .eq('user_id', userId)
+          .is('deleted_at', null)
+          .ilike('description', term)
+          .order('transaction_date', { ascending: false })
+          .limit(RESULTS_PER_TABLE),
+        this.client
+          .from('accounts')
+          .select('id, name, institution')
+          .eq('user_id', userId)
+          .ilike('name', term)
+          .limit(RESULTS_PER_TABLE),
+        this.client
+          .from('categories')
+          .select('id, name, type')
+          .eq('user_id', userId)
+          .ilike('name', term)
+          .limit(RESULTS_PER_TABLE),
+        this.client
+          .from('clients')
+          .select('id, name, status')
+          .eq('user_id', userId)
+          .ilike('name', term)
+          .limit(RESULTS_PER_TABLE),
+        this.client
+          .from('debts')
+          .select('id, creditor_name, principal_amount')
+          .eq('user_id', userId)
+          .ilike('creditor_name', term)
+          .limit(RESULTS_PER_TABLE),
+        this.client
+          .from('savings_goals')
+          .select('id, name, target_amount')
+          .eq('user_id', userId)
+          .ilike('name', term)
+          .limit(RESULTS_PER_TABLE),
+        this.client
+          .from('investments')
+          .select('id, name, amount_invested')
+          .eq('user_id', userId)
+          .ilike('name', term)
+          .limit(RESULTS_PER_TABLE),
+        this.client
+          .from('subscriptions')
+          .select('id, name, amount')
+          .eq('user_id', userId)
+          .ilike('name', term)
+          .limit(RESULTS_PER_TABLE),
+      ]);
 
     const results: SearchResult[] = [];
 
@@ -62,7 +78,13 @@ export class SupabaseSearchRepository implements ISearchRepository {
       });
     }
     for (const row of accounts.data ?? []) {
-      results.push({ id: row.id, type: 'account', title: row.name, subtitle: row.institution, href: '/accounts' });
+      results.push({
+        id: row.id,
+        type: 'account',
+        title: row.name,
+        subtitle: row.institution,
+        href: '/accounts',
+      });
     }
     for (const row of categories.data ?? []) {
       results.push({
@@ -87,7 +109,7 @@ export class SupabaseSearchRepository implements ISearchRepository {
         id: row.id,
         type: 'debt',
         title: row.creditor_name,
-        subtitle: formatMoney(row.principal_amount),
+        subtitle: row.principal_amount === null ? 'Saldo por confirmar' : formatMoney(row.principal_amount),
         href: '/debts',
       });
     }
@@ -96,7 +118,7 @@ export class SupabaseSearchRepository implements ISearchRepository {
         id: row.id,
         type: 'savings_goal',
         title: row.name,
-        subtitle: formatMoney(row.target_amount),
+        subtitle: row.target_amount === null ? 'Monto por cotizar' : formatMoney(row.target_amount),
         href: '/savings',
       });
     }

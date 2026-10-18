@@ -107,6 +107,7 @@ function AccountCard({
             {TYPE_LABELS[account.type]}
             {account.institution ? ` · ${account.institution}` : ''}
           </p>
+          {account.notes && <p className="mt-1 text-xs text-muted-foreground">{account.notes}</p>}
         </div>
 
         <div className="flex items-center justify-between">

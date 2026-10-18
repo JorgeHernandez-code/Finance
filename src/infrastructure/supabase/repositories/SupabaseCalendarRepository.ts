@@ -10,6 +10,7 @@ function advance(date: Date, cycle: BillingCycle): Date {
   if (cycle === 'weekly') return addWeeks(date, 1);
   if (cycle === 'biweekly') return addWeeks(date, 2);
   if (cycle === 'monthly') return addMonths(date, 1);
+  if (cycle === 'bimonthly') return addMonths(date, 2);
   if (cycle === 'quarterly') return addMonths(date, 3);
   return addYears(date, 1);
 }
@@ -86,7 +87,13 @@ export class SupabaseCalendarRepository implements ICalendarRepository {
     const events: CalendarEvent[] = [];
 
     for (const sub of subscriptionsRes.data ?? []) {
-      const occurrences = projectOccurrences(sub.next_billing_date, sub.billing_cycle, fromDate, toDate);
+      // Sin fecha o sin frecuencia conocidas no se proyecta nada (no se inventan fechas).
+      if (!sub.next_billing_date) continue;
+      const occurrences = sub.billing_cycle
+        ? projectOccurrences(sub.next_billing_date, sub.billing_cycle, fromDate, toDate)
+        : sub.next_billing_date >= from && sub.next_billing_date <= to
+          ? [sub.next_billing_date]
+          : [];
       for (const date of occurrences) {
         events.push({
           id: `subscription-${sub.id}-${date}`,

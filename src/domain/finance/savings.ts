@@ -4,7 +4,8 @@ import type { FinancialSnapshot, SnapshotGoal } from './snapshot';
 
 export interface GoalMetrics {
   goalId: string;
-  remaining: number;
+  /** null = monto objetivo pendiente de cotización. */
+  remaining: number | null;
   percent: number;
   /** Meses que quedan hasta la fecha objetivo (mínimo 1 si la fecha es futura). null = sin fecha. */
   monthsRemaining: number | null;
@@ -17,7 +18,7 @@ export interface GoalMetrics {
   /** Fecha estimada con el ritmo real (o el aporte planificado si no hay ritmo). */
   estimatedCompletion: IsoDate | null;
   estimateBasis: 'actual_pace' | 'planned' | 'none';
-  status: 'done' | 'on_track' | 'behind' | 'overdue' | 'no_date' | 'inactive';
+  status: 'done' | 'on_track' | 'behind' | 'overdue' | 'no_date' | 'no_target' | 'inactive';
 }
 
 function addMonthsCeil(today: IsoDate, remaining: number, perMonth: number): IsoDate | null {
@@ -31,11 +32,26 @@ export function goalMetrics(
   snapshot: Pick<FinancialSnapshot, 'today' | 'contributions'>
 ): GoalMetrics {
   const { today } = snapshot;
-  const remaining = Math.max(0, subtractMoney(goal.targetAmount, goal.currentAmount));
+  const inactive = goal.status === 'paused' || goal.status === 'cancelled' || goal.status === 'archived';
+  // Sin monto objetivo (pendiente de cotización) no se calcula nada que dependa de él.
+  if (goal.targetAmount === null) {
+    return {
+      goalId: goal.id,
+      remaining: null,
+      percent: 0,
+      monthsRemaining: null,
+      requiredMonthly: null,
+      expectedPercent: null,
+      actualMonthlyPace: 0,
+      estimatedCompletion: null,
+      estimateBasis: 'none',
+      status: inactive ? 'inactive' : 'no_target',
+    };
+  }
+  const targetAmount = goal.targetAmount;
+  const remaining = Math.max(0, subtractMoney(targetAmount, goal.currentAmount));
   const percent =
-    goal.targetAmount > 0
-      ? Math.min(100, Math.round((goal.currentAmount / goal.targetAmount) * 1000) / 10)
-      : 0;
+    targetAmount > 0 ? Math.min(100, Math.round((goal.currentAmount / targetAmount) * 1000) / 10) : 0;
 
   const since = addMonthsIso(today, -3);
   const recent = snapshot.contributions.filter(
@@ -71,8 +87,7 @@ export function goalMetrics(
   }
 
   let status: GoalMetrics['status'];
-  if (goal.status === 'paused' || goal.status === 'cancelled' || goal.status === 'archived')
-    status = 'inactive';
+  if (inactive) status = 'inactive';
   else if (remaining === 0 || goal.status === 'completed') status = 'done';
   else if (!goal.targetDate) status = 'no_date';
   else if (goal.targetDate < today) status = 'overdue';
@@ -139,7 +154,12 @@ export function runScenario(
   const active = goals
     .filter((g) => g.currency === currency && g.status === 'active')
     .map((g) => ({ goal: g, metrics: goalMetrics(g, snapshot) }))
-    .filter(({ metrics }) => metrics.remaining > 0)
+    // Las metas pendientes de cotización (sin monto) no reciben asignación: no hay cifra que planificar.
+    .flatMap(({ goal, metrics }) =>
+      metrics.remaining !== null && metrics.remaining > 0
+        ? [{ goal, metrics, remaining: metrics.remaining }]
+        : []
+    )
     .sort(
       (a, b) =>
         a.goal.priority - b.goal.priority ||
@@ -179,11 +199,11 @@ export function runScenario(
 
   let left = input.monthlyAmount;
   const allocations: GoalAllocation[] = [];
-  for (const { goal, metrics } of active) {
-    const wanted = metrics.requiredMonthly ?? metrics.remaining;
+  for (const { goal, metrics, remaining } of active) {
+    const wanted = metrics.requiredMonthly ?? remaining;
     const monthly = Math.max(0, Math.min(left, wanted));
     left = subtractMoney(left, monthly);
-    const completion = monthly > 0 ? addMonthsCeil(snapshot.today, metrics.remaining, monthly) : null;
+    const completion = monthly > 0 ? addMonthsCeil(snapshot.today, remaining, monthly) : null;
     const meetsTargetDate = goal.targetDate ? completion !== null && completion <= goal.targetDate : null;
     allocations.push({
       goalId: goal.id,

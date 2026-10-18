@@ -12,7 +12,8 @@ const isoDate = z
 
 export const savingsGoalInputSchema = z.object({
   name: z.string().trim().min(1, 'Escribe un nombre').max(80, 'Máximo 80 caracteres'),
-  targetAmount: z.coerce.number().positive('El monto debe ser mayor a 0').max(999_999_999_999),
+  // null = pendiente de cotización (no se inventa un precio).
+  targetAmount: z.coerce.number().positive('El monto debe ser mayor a 0').max(999_999_999_999).nullable(),
   currency: z.enum(CURRENCY_CODES),
   targetDate: z
     .string()

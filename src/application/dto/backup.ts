@@ -40,8 +40,8 @@ const backupSubscriptionSchema = z.object({
   accountId: nullableString,
   amount: z.number(),
   currency: z.string(),
-  billingCycle: z.string(),
-  nextBillingDate: z.string(),
+  billingCycle: z.string().nullable(),
+  nextBillingDate: z.string().nullable(),
   status: z.string(),
   icon: z.string(),
   color: z.string(),
@@ -61,7 +61,7 @@ const backupDebtSchema = z.object({
   id: z.string(),
   creditorName: z.string(),
   direction: z.string(),
-  principalAmount: z.number(),
+  principalAmount: z.number().nullable(),
   interestRate: z.number().nullable(),
   startDate: z.string(),
   dueDate: nullableString,
@@ -79,7 +79,7 @@ const backupDebtPaymentSchema = z.object({
 const backupSavingsGoalSchema = z.object({
   id: z.string(),
   name: z.string(),
-  targetAmount: z.number(),
+  targetAmount: z.number().nullable(),
   targetDate: nullableString,
   icon: z.string(),
   color: z.string(),
@@ -145,7 +145,10 @@ export const backupBundleSchema = z.object({
 });
 export type BackupBundleDto = z.infer<typeof backupBundleSchema>;
 
-export const backupExportPassphraseSchema = z.string().min(8, 'La contraseña debe tener al menos 8 caracteres').max(200);
+export const backupExportPassphraseSchema = z
+  .string()
+  .min(8, 'La contraseña debe tener al menos 8 caracteres')
+  .max(200);
 
 export const backupImportSchema = z.object({
   fileContent: z.string().min(1, 'Archivo vacío'),

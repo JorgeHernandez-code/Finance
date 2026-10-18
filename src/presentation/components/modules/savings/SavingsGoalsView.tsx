@@ -18,7 +18,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useSavingsGoals } from '@/presentation/hooks/useSavingsGoals';
-import { formatMoney, formatPercent } from '@/shared/lib/format';
+import { formatMaybeMoney, formatMoney, formatPercent } from '@/shared/lib/format';
 import { sortCurrencies, totalsBy } from '@/shared/lib/money';
 import { todayIso } from '@/shared/lib/dates';
 import { getIcon } from '@/shared/config/iconMap';
@@ -52,6 +52,7 @@ const METRIC_BADGE: Record<
   behind: { label: 'Por debajo del ritmo', variant: 'warning' },
   overdue: { label: 'Fecha vencida', variant: 'warning' },
   no_date: { label: 'Sin fecha', variant: 'outline' },
+  no_target: { label: 'Pendiente de cotización', variant: 'outline' },
   inactive: { label: 'Inactiva', variant: 'outline' },
 };
 
@@ -110,7 +111,7 @@ export function SavingsGoalsView({
   const target = totalsBy(
     live,
     (g) => g.currency,
-    (g) => g.targetAmount
+    (g) => g.targetAmount ?? 0
   );
 
   return (
@@ -172,6 +173,7 @@ export function SavingsGoalsView({
                           {goal.targetDate &&
                             ` · meta ${format(parseISO(goal.targetDate), 'd MMM yyyy', { locale: es })}`}
                         </p>
+                        {goal.notes && <p className="text-xs text-muted-foreground">{goal.notes}</p>}
                       </div>
                     </div>
                     <DropdownMenu>
@@ -225,18 +227,20 @@ export function SavingsGoalsView({
 
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-baseline justify-between text-xs text-muted-foreground">
-                      <span>Objetivo: {formatMoney(goal.targetAmount, goal.currency)}</span>
+                      <span>
+                        Objetivo: {formatMaybeMoney(goal.targetAmount, goal.currency, 'por cotizar')}
+                      </span>
                       <span>{formatPercent(m.percent)}</span>
                     </div>
                     <Progress value={m.percent} indicatorClassName="bg-success" />
-                    {m.expectedPercent !== null && !inactive && m.remaining > 0 && (
+                    {m.expectedPercent !== null && !inactive && m.remaining !== null && m.remaining > 0 && (
                       <p className="text-xs text-muted-foreground">
                         Esperado a hoy: {formatPercent(m.expectedPercent)}
                       </p>
                     )}
                   </div>
 
-                  {!inactive && m.remaining > 0 && (
+                  {!inactive && m.remaining !== null && m.remaining > 0 && (
                     <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
                       <dt className="text-muted-foreground">Pendiente</dt>
                       <dd className="tabular text-right">{formatMoney(m.remaining, goal.currency)}</dd>

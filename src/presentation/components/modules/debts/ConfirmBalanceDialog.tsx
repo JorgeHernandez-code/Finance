@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { confirmDebtBalanceAction, listDebtPaymentsAction } from '@/app/(dashboard)/debts/actions';
 import type { Debt, DebtPayment } from '@/domain/entities/Debt';
-import { formatMoney } from '@/shared/lib/format';
+import { formatMaybeMoney, formatMoney } from '@/shared/lib/format';
 import { todayIso } from '@/shared/lib/dates';
 import {
   Dialog,
@@ -60,7 +60,10 @@ export function ConfirmBalanceDialog({ debt, onOpenChange, onSaved }: Props) {
           <DialogDescription>
             {debt && (
               <>
-                Finance calcula {formatMoney(debt.remainingBalance, debt.currency)}{' '}
+                Finance calcula{' '}
+                {formatMaybeMoney(debt.remainingBalance, debt.currency, 'un saldo desconocido', {
+                  approximate: debt.amountIsEstimate,
+                })}{' '}
                 {debt.balanceConfirmedAt
                   ? `(confirmado el ${debt.balanceConfirmedAt}, más pagos posteriores)`
                   : '(estimado)'}

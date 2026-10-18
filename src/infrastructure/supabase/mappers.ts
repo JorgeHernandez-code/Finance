@@ -24,11 +24,16 @@ export function mapDebt(row: DebtRow, balance?: Partial<DebtBalanceRow>): Snapsh
     kind: row.kind ?? 'other',
     currency: row.currency ?? 'COP',
     country: row.country ?? null,
-    principalAmount: num(row.principal_amount),
+    principalAmount: numOrNull(row.principal_amount),
+    // null = saldo desconocido (sin monto original ni confirmación).
     remainingBalance:
-      balance?.remaining_balance !== undefined
-        ? num(balance.remaining_balance)
-        : num(row.balance_confirmed_amount ?? row.principal_amount),
+      balance && balance.remaining_balance !== undefined
+        ? numOrNull(balance.remaining_balance)
+        : numOrNull(row.balance_confirmed_amount ?? row.principal_amount),
+    amountIsEstimate: row.amount_is_estimate ?? false,
+    responsibility: row.responsibility ?? 'own',
+    legalHolder: row.legal_holder ?? null,
+    nextInstallmentNumber: row.next_installment_number ?? null,
     totalPaid: num(balance?.total_paid),
     totalInterestAndFees: num(balance?.total_interest_and_fees),
     interestRate: numOrNull(row.interest_rate),
@@ -54,7 +59,7 @@ export function mapGoal(row: GoalRow, progress?: Partial<GoalProgressRow>): Snap
   return {
     id: row.id,
     name: row.name,
-    targetAmount: num(row.target_amount),
+    targetAmount: numOrNull(row.target_amount),
     currency: row.currency ?? 'COP',
     targetDate: row.target_date,
     status: row.status,
@@ -81,6 +86,8 @@ export function mapRecurring(row: SubscriptionRow): SnapshotRecurring {
     isEssential: row.is_essential ?? false,
     debtId: row.debt_id ?? null,
     lastReviewedAt: row.last_reviewed_at ?? null,
+    amountIsEstimate: row.amount_is_estimate ?? false,
+    cycleConfirmed: row.cycle_confirmed ?? true,
   };
 }
 

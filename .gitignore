@@ -31,3 +31,6 @@ android/local.properties
 !.vscode/extensions.json
 npm-debug.log*
 .turbo/
+
+# Datos financieros personales e importaciones: NUNCA al repositorio (es público)
+/private/

@@ -6,10 +6,16 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Plus, MoreHorizontal, Pencil, Trash2, HandCoins, BadgeCheck, AlertCircle } from 'lucide-react';
 import { useDebts } from '@/presentation/hooks/useDebts';
-import { formatMoney, formatPercent } from '@/shared/lib/format';
+import { formatMaybeMoney, formatMoney, formatPercent } from '@/shared/lib/format';
 import { sortCurrencies } from '@/shared/lib/money';
 import { todayIso } from '@/shared/lib/dates';
-import { COUNTRY_LABEL, DEBT_KIND_LABEL, DEBT_STATUS_LABEL, type Debt } from '@/domain/entities/Debt';
+import {
+  COUNTRY_LABEL,
+  DEBT_KIND_LABEL,
+  DEBT_STATUS_LABEL,
+  RESPONSIBILITY_LABEL,
+  type Debt,
+} from '@/domain/entities/Debt';
 import {
   DEBT_GAP_LABEL,
   agreedDate,
@@ -136,6 +142,18 @@ export function DebtsView({
               empty="Nada registrado"
             />
             <ConsolidatedNote consolidated={summary.iOwe.totalCop} />
+            {summary.iOwe.unknownBalanceCount > 0 && (
+              <p className="text-xs text-warning">
+                {summary.iOwe.unknownBalanceCount} deuda(s) con saldo desconocido no están incluidas en el
+                total.
+              </p>
+            )}
+            {Object.keys(summary.iOwe.sharedOrThirdPartyByCurrency).length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                De ese total, compartidas o a nombre de terceros:{' '}
+                <MoneyByCurrency totals={summary.iOwe.sharedOrThirdPartyByCurrency} className="inline-flex" />
+              </p>
+            )}
             <p className="text-xs text-muted-foreground">
               Confirmado:{' '}
               <MoneyByCurrency totals={summary.iOwe.confirmedByCurrency} className="inline-flex" /> ·
@@ -219,7 +237,8 @@ export function DebtsView({
               <ul className="mt-3 flex flex-col gap-1 text-muted-foreground">
                 {paid.map((d) => (
                   <li key={d.id}>
-                    {d.creditorName} · {formatMoney(d.principalAmount, d.currency)}
+                    {d.creditorName} ·{' '}
+                    {formatMaybeMoney(d.principalAmount, d.currency, 'monto sin registrar')}
                   </li>
                 ))}
               </ul>
@@ -259,7 +278,7 @@ export function DebtsView({
                   >
                     <span className="truncate">{d.creditorName}</span>
                     <span className="tabular text-xs text-muted-foreground">
-                      {formatMoney(d.remainingBalance, d.currency)}
+                      {formatMaybeMoney(d.remainingBalance, d.currency)}
                     </span>
                   </Button>
                 </li>
@@ -316,7 +335,9 @@ function DebtGrid({ title, debts, onPay, onConfirm, onEdit, onDelete }: DebtGrid
         {debts.map((debt) => {
           const badge = TIMELINE_BADGE[debt.timeline];
           const paidPercent =
-            debt.principalAmount > 0 ? Math.min(100, (debt.totalPaid / debt.principalAmount) * 100) : 0;
+            debt.principalAmount !== null && debt.principalAmount > 0
+              ? Math.min(100, (debt.totalPaid / debt.principalAmount) * 100)
+              : 0;
           const date = agreedDate(debt);
           return (
             <Card key={debt.id}>
@@ -358,7 +379,9 @@ function DebtGrid({ title, debts, onPay, onConfirm, onEdit, onDelete }: DebtGrid
 
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="tabular text-lg font-semibold text-foreground">
-                    {formatMoney(debt.remainingBalance, debt.currency)}
+                    {formatMaybeMoney(debt.remainingBalance, debt.currency, 'Saldo por confirmar', {
+                      approximate: debt.amountIsEstimate,
+                    })}
                   </p>
                   <div className="flex flex-wrap gap-1">
                     {debt.status === 'negotiating' || debt.status === 'agreement' ? (
@@ -387,10 +410,22 @@ function DebtGrid({ title, debts, onPay, onConfirm, onEdit, onDelete }: DebtGrid
                 </div>
 
                 <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
-                  {debt.installmentAmount && (
+                  {(debt.installmentAmount || debt.nextInstallmentNumber) && (
                     <span>
-                      Cuota: {formatMoney(debt.installmentAmount, debt.currency)}
-                      {debt.installmentsTotal ? ` · ${debt.installmentsTotal} cuotas` : ''}
+                      {debt.installmentAmount
+                        ? `Cuota: ${formatMoney(debt.installmentAmount, debt.currency)}`
+                        : 'Cuota por confirmar'}
+                      {debt.nextInstallmentNumber
+                        ? ` · próxima n.º ${debt.nextInstallmentNumber}${debt.installmentsTotal ? ` de ${debt.installmentsTotal}` : ''}`
+                        : debt.installmentsTotal
+                          ? ` · ${debt.installmentsTotal} cuotas`
+                          : ''}
+                    </span>
+                  )}
+                  {debt.responsibility !== 'own' && (
+                    <span>
+                      {RESPONSIBILITY_LABEL[debt.responsibility]}
+                      {debt.legalHolder ? ` · titular: ${debt.legalHolder}` : ''}
                     </span>
                   )}
                   <span>

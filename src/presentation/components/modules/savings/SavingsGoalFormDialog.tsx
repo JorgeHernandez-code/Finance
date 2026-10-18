@@ -67,7 +67,7 @@ function toFormState(editing: SavingsGoal | null, defaultCurrency: string): Form
   }
   return {
     name: editing.name,
-    targetAmount: String(editing.targetAmount),
+    targetAmount: editing.targetAmount === null ? '' : String(editing.targetAmount),
     currency: editing.currency,
     targetDate: editing.targetDate ?? '',
     accountId: editing.accountId,
@@ -106,7 +106,7 @@ export function SavingsGoalFormDialog({
     setSubmitting(true);
     const payload: SavingsGoalInputDto = {
       name: form.name,
-      targetAmount: Number(form.targetAmount),
+      targetAmount: form.targetAmount.trim() === '' ? null : Number(form.targetAmount),
       currency: form.currency,
       targetDate: form.targetDate || null,
       accountId: accountOptions.some((a) => a.id === form.accountId) ? form.accountId : null,
@@ -165,14 +165,13 @@ export function SavingsGoalFormDialog({
           </label>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Field label="Monto objetivo" htmlFor="goal-target">
+            <Field label="Monto objetivo" htmlFor="goal-target" hint="Vacío si está pendiente de cotización">
               <Input
                 id="goal-target"
                 type="number"
                 inputMode="decimal"
                 step="0.01"
                 min="0.01"
-                required
                 value={form.targetAmount}
                 onChange={(e) => set('targetAmount', e.target.value)}
               />

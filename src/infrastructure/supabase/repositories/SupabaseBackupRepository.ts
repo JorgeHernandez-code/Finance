@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '@/shared/types/database';
+import type { BillingCycleDb, Database } from '@/shared/types/database';
 import type { IBackupRepository } from '@/domain/repositories/IBackupRepository';
 import type { BackupBundle, BackupImportSummary } from '@/domain/entities/Backup';
 
@@ -7,19 +7,33 @@ export class SupabaseBackupRepository implements IBackupRepository {
   constructor(private readonly client: SupabaseClient<Database>) {}
 
   async exportAll(userId: string): Promise<BackupBundle> {
-    const [profileRes, accountsRes, categoriesRes, clientsRes, subscriptionsRes, budgetsRes, debtsRes, savingsGoalsRes, investmentsRes, transactionsRes] =
-      await Promise.all([
-        this.client.from('profiles').select('full_name, default_currency, locale, theme').eq('id', userId).single(),
-        this.client.from('accounts').select('*').eq('user_id', userId),
-        this.client.from('categories').select('*').eq('user_id', userId),
-        this.client.from('clients').select('*').eq('user_id', userId),
-        this.client.from('subscriptions').select('*').eq('user_id', userId),
-        this.client.from('budgets').select('*').eq('user_id', userId),
-        this.client.from('debts').select('*').eq('user_id', userId),
-        this.client.from('savings_goals').select('*').eq('user_id', userId),
-        this.client.from('investments').select('*').eq('user_id', userId),
-        this.client.from('transactions').select('*').eq('user_id', userId).is('deleted_at', null),
-      ]);
+    const [
+      profileRes,
+      accountsRes,
+      categoriesRes,
+      clientsRes,
+      subscriptionsRes,
+      budgetsRes,
+      debtsRes,
+      savingsGoalsRes,
+      investmentsRes,
+      transactionsRes,
+    ] = await Promise.all([
+      this.client
+        .from('profiles')
+        .select('full_name, default_currency, locale, theme')
+        .eq('id', userId)
+        .single(),
+      this.client.from('accounts').select('*').eq('user_id', userId),
+      this.client.from('categories').select('*').eq('user_id', userId),
+      this.client.from('clients').select('*').eq('user_id', userId),
+      this.client.from('subscriptions').select('*').eq('user_id', userId),
+      this.client.from('budgets').select('*').eq('user_id', userId),
+      this.client.from('debts').select('*').eq('user_id', userId),
+      this.client.from('savings_goals').select('*').eq('user_id', userId),
+      this.client.from('investments').select('*').eq('user_id', userId),
+      this.client.from('transactions').select('*').eq('user_id', userId).is('deleted_at', null),
+    ]);
 
     for (const [label, res] of Object.entries({
       profile: profileRes,
@@ -55,11 +69,16 @@ export class SupabaseBackupRepository implements IBackupRepository {
         : Promise.resolve({ data: [], error: null }),
     ]);
 
-    if (debtPaymentsRes.error) throw new Error(`No se pudieron exportar los abonos de deudas: ${debtPaymentsRes.error.message}`);
+    if (debtPaymentsRes.error)
+      throw new Error(`No se pudieron exportar los abonos de deudas: ${debtPaymentsRes.error.message}`);
     if (savingsContributionsRes.error)
-      throw new Error(`No se pudieron exportar los aportes de ahorro: ${savingsContributionsRes.error.message}`);
+      throw new Error(
+        `No se pudieron exportar los aportes de ahorro: ${savingsContributionsRes.error.message}`
+      );
     if (investmentValuationsRes.error)
-      throw new Error(`No se pudieron exportar las valuaciones de inversión: ${investmentValuationsRes.error.message}`);
+      throw new Error(
+        `No se pudieron exportar las valuaciones de inversión: ${investmentValuationsRes.error.message}`
+      );
 
     const profile = profileRes.data;
     if (!profile) throw new Error('No se pudo cargar el perfil para el respaldo.');
@@ -217,7 +236,9 @@ export class SupabaseBackupRepository implements IBackupRepository {
       .eq('user_id', userId)
       .eq('is_system', true);
 
-    const systemCategoryByNameType = new Map((existingSystemCategories ?? []).map((c) => [`${c.name}::${c.type}`, c.id]));
+    const systemCategoryByNameType = new Map(
+      (existingSystemCategories ?? []).map((c) => [`${c.name}::${c.type}`, c.id])
+    );
 
     const categoryIdMap = new Map<string, string>();
     for (const category of bundle.categories) {
@@ -254,7 +275,11 @@ export class SupabaseBackupRepository implements IBackupRepository {
       const newId = categoryIdMap.get(category.id);
       const newParentId = categoryIdMap.get(category.parentId);
       if (!newId || !newParentId) continue;
-      await this.client.from('categories').update({ parent_id: newParentId }).eq('id', newId).eq('user_id', userId);
+      await this.client
+        .from('categories')
+        .update({ parent_id: newParentId })
+        .eq('id', newId)
+        .eq('user_id', userId);
     }
 
     const accountIdMap = new Map<string, string>();
@@ -316,7 +341,7 @@ export class SupabaseBackupRepository implements IBackupRepository {
         account_id: subscription.accountId ? (accountIdMap.get(subscription.accountId) ?? null) : null,
         amount: subscription.amount,
         currency: subscription.currency,
-        billing_cycle: subscription.billingCycle as 'weekly' | 'monthly' | 'yearly',
+        billing_cycle: subscription.billingCycle as BillingCycleDb | null,
         next_billing_date: subscription.nextBillingDate,
         status: subscription.status as 'active' | 'paused' | 'cancelled',
         icon: subscription.icon,
@@ -390,7 +415,12 @@ export class SupabaseBackupRepository implements IBackupRepository {
       }
       const { error } = await this.client
         .from('debt_payments')
-        .insert({ debt_id: newDebtId, amount: payment.amount, payment_date: payment.paymentDate, notes: payment.notes });
+        .insert({
+          debt_id: newDebtId,
+          amount: payment.amount,
+          payment_date: payment.paymentDate,
+          notes: payment.notes,
+        });
 
       if (error) {
         console.error('[SupabaseBackupRepository.importAll debtPayment]', error);

@@ -25,7 +25,7 @@ import {
 } from '@/shared/lib/dates';
 import { sumMoney } from '@/shared/lib/money';
 import { monthlyCapacity } from './cashflow';
-import { debtGaps, agreedDate } from './debts';
+import { debtGaps, agreedDate, isOpenDebt } from './debts';
 import type { FinancialSnapshot, SnapshotDebt } from './snapshot';
 
 export const HEALTH_RULES_VERSION = 'v1';
@@ -203,11 +203,12 @@ export function computeHealthScore(snapshot: FinancialSnapshot, period: Period):
 
   // ---------------- 2. Obligaciones acordadas
   const inventoryDone = countCheckins(data.checkins, 'debts_inventory', addDaysIso(end, -90), end) > 0;
-  const openDebts = data.debts.filter(
-    (d) => d.direction === 'i_owe' && d.status !== 'paid' && d.remainingBalance > 0
-  );
+  const openDebts = data.debts.filter((d) => d.direction === 'i_owe' && isOpenDebt(d));
   const completeDebts = openDebts.filter((d) =>
-    debtGaps(d, end).every((g) => g === 'balance_unconfirmed')
+    // Información completa = tipo, país e interés. El saldo se mide aparte (ítem "Saldos confirmados").
+    debtGaps(d, end).every(
+      (g) => g === 'balance_unconfirmed' || g === 'balance_unknown' || g === 'amount_estimate'
+    )
   ).length;
   const confirmedDebts = openDebts.filter(
     (d) =>
@@ -396,9 +397,11 @@ export function computeHealthScore(snapshot: FinancialSnapshot, period: Period):
       'emergency_progress',
       'Avance del fondo',
       4,
-      emergency ? frac(emergency.currentAmount, emergency.targetAmount) : 0,
+      emergency && emergency.targetAmount ? frac(emergency.currentAmount, emergency.targetAmount) : 0,
       emergency
-        ? `Fondo al ${Math.round(frac(emergency.currentAmount, emergency.targetAmount) * 100)} % de su objetivo.`
+        ? emergency.targetAmount
+          ? `Fondo al ${Math.round(frac(emergency.currentAmount, emergency.targetAmount) * 100)} % de su objetivo.`
+          : 'El fondo no tiene monto objetivo definido.'
         : 'Sin fondo de emergencia: no aplica.',
       'Cada aporte al fondo suma.',
       !!emergency

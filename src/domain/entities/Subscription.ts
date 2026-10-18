@@ -17,8 +17,14 @@ export interface Subscription {
   accountName: string | null;
   amount: number;
   currency: string;
-  billingCycle: BillingCycle;
-  nextBillingDate: string;
+  /** null = frecuencia desconocida. */
+  billingCycle: BillingCycle | null;
+  /** null = fecha de cobro desconocida. */
+  nextBillingDate: string | null;
+  amountIsEstimate: boolean;
+  /** false = frecuencia informada pero pendiente de confirmar. */
+  cycleConfirmed: boolean;
+  notes: string | null;
   status: SubscriptionStatus;
   icon: string;
   color: string;

@@ -42,6 +42,7 @@ export const debtInputSchema = z.object({
     'tax',
     'fine',
     'utility',
+    'state_loan',
     'other',
   ]),
   currency: z.enum(CURRENCY_CODES),
@@ -51,7 +52,18 @@ export const debtInputSchema = z.object({
     .optional()
     .transform((v) => (v ? v : null))
     .refine((v) => v === null || /^[A-Z]{2}$/.test(v), 'País inválido'),
-  principalAmount: money,
+  // Opcional: si solo se conoce la cuota, el saldo queda "por confirmar" (null) en vez de inventarlo.
+  principalAmount: money.nullable().optional(),
+  amountIsEstimate: z.boolean().optional(),
+  responsibility: z.enum(['own', 'shared', 'third_party']).optional(),
+  legalHolder: z
+    .string()
+    .trim()
+    .max(120)
+    .nullable()
+    .optional()
+    .transform((v) => (v ? v : null)),
+  nextInstallmentNumber: optionalNumber(z.number().int().positive()).optional(),
   interestRate: optionalNumber(z.number().min(0).max(100)).optional(),
   interestRatePeriod: z.enum(['monthly', 'annual']).nullable().optional(),
   startDate: isoDate,

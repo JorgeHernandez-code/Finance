@@ -131,3 +131,21 @@ Garantías verificadas en `__tests__/db/finance2-migrations.test.ts` (aplicando 
 - **Contenido de la Academia**: 15 lecciones sin normas ni impuestos. Si se agregan temas tributarios, deben citar la fuente oficial y la fecha (`sources` en la lección).
 - **Pruebas E2E** autenticadas (Playwright) contra un Supabase de pruebas: no hay entorno de staging.
 - La vista `v_net_worth` y `v_monthly_summary` siguen existiendo por compatibilidad, marcadas como obsoletas; se pueden eliminar en una migración futura, cuando ya no haya versiones viejas desplegadas.
+
+---
+
+## 5. Migración 0016: datos desconocidos e importaciones
+
+`0016_import_support_unknowns.sql` permite registrar lo que el usuario **no sabe** sin inventarlo:
+
+| Antes (obligatorio) | Ahora |
+|---|---|
+| Saldo de una deuda | Puede quedar vacío ("saldo por confirmar") cuando solo se conoce la cuota. No se suma a los totales y se cuenta aparte. |
+| Monto de una meta | Puede quedar vacío ("pendiente de cotización"). |
+| Fecha y frecuencia de un recurrente | Pueden quedar vacías. Nueva frecuencia bimestral. Marca de "frecuencia por confirmar". |
+| — | Marcas de importe aproximado (deudas y recurrentes), titular legal y responsabilidad (propia / compartida / de un tercero), número de la próxima cuota, tipo "préstamo estatal" y notas en cuentas, metas y recurrentes. |
+| — | `import_ref` único por usuario en cuentas, deudas, recurrentes, metas y clientes: permite importaciones idempotentes. |
+
+Es aditiva (solo quita `NOT NULL`, amplía `CHECK` y agrega columnas). **Orden:** aplicar 0016 → desplegar el código → recién entonces cargar datos que usen valores vacíos (el código anterior no los sabe mostrar).
+
+Las importaciones de datos personales **no se versionan**: viven en `/private/` (en `.gitignore`), porque el repositorio es público.

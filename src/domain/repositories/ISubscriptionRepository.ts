@@ -14,8 +14,11 @@ export interface SubscriptionInput {
   accountId?: string | null;
   amount: number;
   currency: string;
-  billingCycle: BillingCycle;
-  nextBillingDate: string;
+  billingCycle: BillingCycle | null;
+  nextBillingDate: string | null;
+  amountIsEstimate: boolean;
+  cycleConfirmed: boolean;
+  notes?: string | null;
   icon: string;
   color: string;
 }

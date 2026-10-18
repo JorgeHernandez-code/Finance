@@ -2,7 +2,7 @@ import type { SavingsGoal, SavingsGoalStatus } from '@/domain/entities/SavingsGo
 
 export interface SavingsGoalInput {
   name: string;
-  targetAmount: number;
+  targetAmount: number | null;
   currency: string;
   targetDate?: string | null;
   accountId?: string | null;

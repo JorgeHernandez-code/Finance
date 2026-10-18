@@ -13,7 +13,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import type { FinanceOverview } from '@/application/use-cases/finance/GetFinanceOverview';
-import { formatMoney } from '@/shared/lib/format';
+import { formatMaybeMoney, formatMoney } from '@/shared/lib/format';
 import { sortCurrencies } from '@/shared/lib/money';
 import { Card, CardContent, CardHeader, CardTitle } from '@/presentation/components/ui/card';
 import { Badge } from '@/presentation/components/ui/badge';
@@ -410,14 +410,17 @@ export function DashboardView({ data }: { data: FinanceOverview }) {
                     <span className="truncate font-medium">{goal.name}</span>
                     <span className="tabular text-xs text-muted-foreground">
                       {formatMoney(goal.currentAmount, goal.currency)} /{' '}
-                      {formatMoney(goal.targetAmount, goal.currency)}
+                      {formatMaybeMoney(goal.targetAmount, goal.currency, 'monto por cotizar')}
                     </span>
                   </div>
                   <Progress value={metrics.percent} indicatorClassName="bg-success" />
                   <p className="text-xs text-muted-foreground">
-                    Falta {formatMoney(metrics.remaining, goal.currency)}
+                    {metrics.remaining === null
+                      ? 'Pendiente de cotización'
+                      : `Falta ${formatMoney(metrics.remaining, goal.currency)}`}
                     {goal.targetDate && ` · meta ${dateLabel(goal.targetDate)}`}
                     {metrics.requiredMonthly !== null &&
+                      metrics.remaining !== null &&
                       metrics.remaining > 0 &&
                       ` · necesitas ${formatMoney(metrics.requiredMonthly, goal.currency)}/mes`}
                     {goal.status === 'paused' && ' · en pausa'}

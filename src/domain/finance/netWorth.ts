@@ -100,12 +100,19 @@ export function computeNetWorth(snapshot: FinancialSnapshot): NetWorth {
   }
 
   for (const debt of snapshot.debts.filter(isOpenDebt)) {
+    // Saldo desconocido: no se inventa; se advierte abajo.
+    if (debt.remainingBalance === null) continue;
     const line: NetWorthLine = {
       kind: debt.direction === 'i_owe' ? 'debt' : 'receivable',
       label: debt.creditorName,
       currency: debt.currency,
       amount: debt.remainingBalance,
-      certainty: isBalanceConfirmed(debt, today) ? 'confirmed' : 'estimated',
+      certainty: isBalanceConfirmed(debt, today) && !debt.amountIsEstimate ? 'confirmed' : 'estimated',
+      note: debt.amountIsEstimate
+        ? 'Importe aproximado'
+        : debt.responsibility !== 'own'
+          ? `A nombre de ${debt.legalHolder ?? 'un tercero'}`
+          : undefined,
     };
     (debt.direction === 'i_owe' ? liabilities : assets).push(line);
   }
@@ -148,6 +155,9 @@ export function computeNetWorth(snapshot: FinancialSnapshot): NetWorth {
   ).length;
   if (unconfirmedDebts)
     warnings.push(`${unconfirmedDebts} deuda(s) con saldo estimado (sin confirmar con el acreedor).`);
+  const unknownDebts = snapshot.debts.filter((d) => isOpenDebt(d) && d.remainingBalance === null).length;
+  if (unknownDebts)
+    warnings.push(`${unknownDebts} deuda(s) con saldo total desconocido: no están incluidas en los pasivos.`);
   const noValuation = snapshot.investments.filter((i) => i.latestValue === null).length;
   if (noValuation) warnings.push(`${noValuation} inversión(es) sin valoración registrada.`);
 

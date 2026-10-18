@@ -14,3 +14,17 @@ export function formatMoney(amount: number, currency: string = 'COP', locale: st
 export function formatPercent(value: number, locale: string = 'es-CO'): string {
   return new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 1 }).format(value / 100);
 }
+
+/**
+ * Como formatMoney, pero para importes que pueden ser desconocidos (null):
+ * muestra un texto explícito en vez de un 0 que aparentaría un dato real.
+ */
+export function formatMaybeMoney(
+  amount: number | null | undefined,
+  currency: string = 'COP',
+  unknownLabel = 'Por confirmar',
+  options: { approximate?: boolean } = {}
+): string {
+  if (amount === null || amount === undefined) return unknownLabel;
+  return `${options.approximate ? '≈ ' : ''}${formatMoney(amount, currency)}`;
+}

@@ -45,6 +45,15 @@ const STATUS_BADGE: Record<
   cancelled: { label: 'Cancelada', variant: 'outline' },
 };
 
+const CYCLE_TEXT: Record<NonNullable<Subscription['billingCycle']>, string> = {
+  weekly: 'Semanal',
+  biweekly: 'Quincenal',
+  monthly: 'Mensual',
+  bimonthly: 'Cada dos meses',
+  quarterly: 'Trimestral',
+  yearly: 'Anual',
+};
+
 interface SubscriptionsViewProps {
   userId: string;
   initialData: Subscription[];
@@ -84,16 +93,24 @@ export function SubscriptionsView({ userId, initialData, options, debts }: Subsc
   }
 
   const active = subscriptions.filter((s) => s.status === 'active');
-  const activeMonthly = totalsBy(
-    active,
+  // Sin frecuencia conocida no hay equivalente mensual: esos van aparte, nunca se suman.
+  const withCycle = active.filter((s) => s.billingCycle !== null);
+  const confirmedMonthly = totalsBy(
+    withCycle.filter((s) => !s.amountIsEstimate && s.cycleConfirmed),
     (s) => s.currency,
-    (s) => monthlyEquivalent(s)
+    (s) => monthlyEquivalent(s) ?? 0
+  );
+  const estimatedMonthly = totalsBy(
+    withCycle.filter((s) => s.amountIsEstimate || !s.cycleConfirmed),
+    (s) => s.currency,
+    (s) => monthlyEquivalent(s) ?? 0
   );
   const essentialMonthly = totalsBy(
-    active.filter((s) => s.isEssential),
+    withCycle.filter((s) => s.isEssential),
     (s) => s.currency,
-    (s) => monthlyEquivalent(s)
+    (s) => monthlyEquivalent(s) ?? 0
   );
+  const unknownCycle = active.filter((s) => s.billingCycle === null);
   const today = todayIso();
 
   return (
@@ -102,8 +119,15 @@ export function SubscriptionsView({ userId, initialData, options, debts }: Subsc
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Gastos recurrentes</h1>
           <div className="flex flex-wrap items-baseline gap-x-2 text-sm text-muted-foreground">
-            Activos, equivalente mensual:{' '}
-            <MoneyByCurrency totals={activeMonthly} className="font-medium text-foreground" />
+            Equivalente mensual confirmado:{' '}
+            <MoneyByCurrency totals={confirmedMonthly} className="font-medium text-foreground" />
+            {Object.keys(estimatedMonthly).length > 0 && (
+              <>
+                · aproximado o por confirmar:{' '}
+                <MoneyByCurrency totals={estimatedMonthly} className="font-medium text-foreground" />
+              </>
+            )}
+            {unknownCycle.length > 0 && <> · {unknownCycle.length} sin frecuencia conocida (no se suman)</>}
             {Object.keys(essentialMonthly).length > 0 && (
               <>
                 · esenciales:{' '}
@@ -206,12 +230,22 @@ export function SubscriptionsView({ userId, initialData, options, debts }: Subsc
                   <div className="flex items-end justify-between">
                     <div>
                       <p className="tabular text-lg font-semibold text-foreground">
+                        {subscription.amountIsEstimate ? '≈ ' : ''}
                         {formatMoney(subscription.amount, subscription.currency)}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Próximo cobro:{' '}
-                        {format(parseISO(subscription.nextBillingDate), 'd MMM yyyy', { locale: es })}
+                        {subscription.billingCycle
+                          ? CYCLE_TEXT[subscription.billingCycle]
+                          : 'Frecuencia por confirmar'}
+                        {subscription.billingCycle && !subscription.cycleConfirmed ? ' (por confirmar)' : ''}
+                        {' · '}
+                        {subscription.nextBillingDate
+                          ? `Próximo cobro: ${format(parseISO(subscription.nextBillingDate), 'd MMM yyyy', { locale: es })}`
+                          : 'Día de cobro por confirmar'}
                       </p>
+                      {subscription.notes && (
+                        <p className="text-xs text-muted-foreground">{subscription.notes}</p>
+                      )}
                     </div>
                     <Badge variant={status.variant}>{status.label}</Badge>
                   </div>

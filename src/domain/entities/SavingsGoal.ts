@@ -7,6 +7,7 @@ export interface SavingsGoal extends SnapshotGoal {
   icon: string;
   color: string;
   progressPercent: number;
+  notes: string | null;
 }
 
 export const GOAL_STATUS_LABEL: Record<SavingsGoalStatus, string> = {

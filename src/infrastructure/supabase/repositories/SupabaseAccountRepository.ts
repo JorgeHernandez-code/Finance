@@ -24,7 +24,9 @@ export class SupabaseAccountRepository implements IAccountRepository {
       throw new Error(`No se pudo calcular el saldo de las cuentas: ${balancesRes.error.message}`);
     }
 
-    const balanceByAccount = new Map((balancesRes.data ?? []).map((row) => [row.account_id, row.current_balance]));
+    const balanceByAccount = new Map(
+      (balancesRes.data ?? []).map((row) => [row.account_id, row.current_balance])
+    );
 
     return (accountsRes.data ?? []).map((row) => ({
       id: row.id,
@@ -37,6 +39,7 @@ export class SupabaseAccountRepository implements IAccountRepository {
       color: row.color,
       icon: row.icon,
       isArchived: row.is_archived,
+      notes: row.notes ?? null,
       createdAt: row.created_at,
     }));
   }

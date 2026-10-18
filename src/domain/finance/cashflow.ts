@@ -7,11 +7,14 @@ const MONTHLY_FACTOR: Record<BillingCycle, number> = {
   weekly: 52 / 12,
   biweekly: 26 / 12,
   monthly: 1,
+  bimonthly: 1 / 2,
   quarterly: 1 / 3,
   yearly: 1 / 12,
 };
 
-export function monthlyEquivalent(r: Pick<SnapshotRecurring, 'amount' | 'billingCycle'>): number {
+/** Equivalente mensual. null = frecuencia desconocida (no se puede prorratear sin inventarla). */
+export function monthlyEquivalent(r: Pick<SnapshotRecurring, 'amount' | 'billingCycle'>): number | null {
+  if (!r.billingCycle) return null;
   return Math.round(r.amount * MONTHLY_FACTOR[r.billingCycle] * 100) / 100;
 }
 
@@ -131,6 +134,12 @@ export interface Commitments {
   /** Total comprometido al mes = recurrentes + cuotas no duplicadas. */
   totalMonthly: CurrencyTotals;
   hasEssentialData: boolean;
+  /** Recurrentes con importe y frecuencia confirmados (equivalente mensual). */
+  confirmedRecurring: CurrencyTotals;
+  /** Recurrentes con importe aproximado o frecuencia por confirmar (equivalente mensual). */
+  estimatedRecurring: CurrencyTotals;
+  /** Recurrentes sin frecuencia conocida: no se suman a ningún total mensual. */
+  unknownFrequency: SnapshotRecurring[];
 }
 
 /**
@@ -141,14 +150,32 @@ export function monthlyCommitments(snapshot: FinancialSnapshot): Commitments {
   const active = snapshot.recurring.filter((r) => r.status === 'active');
   const essentialRecurring: CurrencyTotals = {};
   const allRecurring: CurrencyTotals = {};
+  const confirmedRecurring: CurrencyTotals = {};
+  const estimatedRecurring: CurrencyTotals = {};
+  const unknownFrequency: SnapshotRecurring[] = [];
   for (const r of active) {
-    addToTotals(allRecurring, r.currency, monthlyEquivalent(r));
-    if (r.isEssential) addToTotals(essentialRecurring, r.currency, monthlyEquivalent(r));
+    const monthly = monthlyEquivalent(r);
+    if (monthly === null) {
+      unknownFrequency.push(r);
+      continue;
+    }
+    addToTotals(allRecurring, r.currency, monthly);
+    addToTotals(
+      r.amountIsEstimate || !r.cycleConfirmed ? estimatedRecurring : confirmedRecurring,
+      r.currency,
+      monthly
+    );
+    if (r.isEssential) addToTotals(essentialRecurring, r.currency, monthly);
   }
   const linkedDebtIds = new Set(active.map((r) => r.debtId).filter(Boolean));
   const debtInstallmentsNotRecurring: CurrencyTotals = {};
   for (const d of snapshot.debts) {
-    if (d.direction !== 'i_owe' || d.status === 'paid' || d.remainingBalance <= 0 || !d.installmentAmount)
+    if (
+      d.direction !== 'i_owe' ||
+      d.status === 'paid' ||
+      (d.remainingBalance !== null && d.remainingBalance <= 0) ||
+      !d.installmentAmount
+    )
       continue;
     if (linkedDebtIds.has(d.id)) continue;
     addToTotals(debtInstallmentsNotRecurring, d.currency, d.installmentAmount);
@@ -161,6 +188,9 @@ export function monthlyCommitments(snapshot: FinancialSnapshot): Commitments {
     debtInstallmentsNotRecurring,
     totalMonthly,
     hasEssentialData: active.some((r) => r.isEssential),
+    confirmedRecurring,
+    estimatedRecurring,
+    unknownFrequency,
   };
 }
 
